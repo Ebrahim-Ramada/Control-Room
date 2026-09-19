@@ -918,7 +918,8 @@ function mkLine(id,labels,datasets){
 //  SAMPLE DATA
 // ══════════════════════════════════════════════════
 function addSampleData(){
-  if(DB.events.length>0)return;
+  if(DB._setupDone)return;   // already initialized once — don't overwrite
+  if(DB.events.length>0){DB._setupDone=true;saveDB();return;}
   // Factories
   if(!DB.factories.length)DB.factories=FACTORIES_DEF.map((n,i)=>({id:'F'+(i+1),name:n,active:true,area:'المنطقة الصناعية',contact:''}));
   // Cameras
@@ -1003,6 +1004,7 @@ function addSampleData(){
       relatedEntity:'',relatedId:'',notes:'',createdAt:new Date().toISOString()
     });
   }
+  DB._setupDone=true;
   saveDB();
 }
 
@@ -2061,7 +2063,21 @@ const IMP_SCHEMA={
   reviews:{label:'مراجعات',fields:{date:{label:'التاريخ',req:true,a:['التاريخ','تاريخ الطلب','date']},factory:{label:'المصنع',req:true,a:['المصنع','مصنع','factory']},subject:{label:'الموضوع',req:true,a:['موضوع المراجعة','الموضوع','subject']},responsible:{label:'المسؤول',a:['المسؤول','responsible']},priority:{label:'الأولوية',a:['الأولوية','priority']},deadline:{label:'الموعد',a:['الموعد النهائي','deadline']},status:{label:'الحالة',a:['الحالة','status']},notes:{label:'ملاحظات',a:['الملاحظات','notes']}}}
 };
 
-function autoMatch(col,type){const c=String(col||'').trim().toLowerCase();const f=IMP_SCHEMA[type]?.fields||{};for(const[k,fd]of Object.entries(f)){for(const a of(fd.a||[])){if(c===a.toLowerCase()||c.includes(a.toLowerCase())||a.toLowerCase().includes(c))return k;}}return'_skip';}
+function autoMatch(col,type){
+  const c=String(col||'').trim().toLowerCase().replace(/[\s_-]+/g,' ');
+  const f=IMP_SCHEMA[type]?.fields||{};
+  for(const[k,fd]of Object.entries(f)){
+    for(const a of(fd.a||[])){
+      const al=a.toLowerCase().trim();
+      if(c===al||c.includes(al)||al.includes(c)||c.replace(/\s/g,'')===al.replace(/\s/g,''))return k;
+    }
+  }
+  // Fallback: match by first 3 chars
+  for(const[k,fd]of Object.entries(f)){
+    if(c.length>=3&&(fd.label||'').toLowerCase().includes(c.slice(0,3)))return k;
+  }
+  return'_skip';
+}
 
 function renderImportCenter(){
   const el=document.getElementById('page-import-center');if(!el)return;
@@ -2149,7 +2165,7 @@ function iwReadFile(input){
 function iwProceedPreview(){
   // Apply column map
   IW.records=IW.rawRows.map((row,ri)=>{const rec={_ri:ri+2,_st:'ok',_errs:[]};IW.rawHeaders.forEach((h,i)=>{const fk=IW.colMap[h];if(fk&&fk!=='_skip')rec[fk]=String(row[i]===undefined||row[i]===null?'':row[i]).trim();});const flds=IMP_SCHEMA[IW.type]?.fields||{};for(const[k,f]of Object.entries(flds)){if(f.req&&!String(rec[k]||'').trim())rec._errs.push(`"${f.label}" مطلوب`);}if(rec._errs.length)rec._st='err';else{// Check dup
-    const arr=IW.type==='violations'?DB.violations:IW.type==='events'?DB.events:DB.reviews;const tf=IW.type==='events'?'eventType':'type';const isDup=arr.some(x=>(x.date||'')===(rec.date||'')&&(x.factory||'')===(rec.factory||'')&&(x[tf]||'')===(rec[tf]||''));if(isDup)rec._st='dup';}return rec;}).filter(r=>Object.keys(r).length>4);
+    const arr=IW.type==='violations'?DB.violations:IW.type==='events'?DB.events:DB.reviews;const tf=IW.type==='events'?'eventType':'type';const isDup=arr.some(x=>(x.date||'')===(rec.date||'')&&(x.factory||'')===(rec.factory||'')&&(x[tf]||'')===(rec[tf]||''));if(isDup)rec._st='dup';}return rec;}).filter(r=>r._ri&&(r.description||r.type||r.eventType||r.subject||r.title||r.action));
   IW.valid=IW.records.filter(r=>r._st==='ok');IW.errors=IW.records.filter(r=>r._st==='err');IW.dups=IW.records.filter(r=>r._st==='dup');IW.selected=new Set(IW.valid.map(r=>r._ri));
   renderIWStep(3);
 }
@@ -2237,7 +2253,7 @@ function renderFactories(){
     <td>${badge(f.active!==false?'نشط':'معطل',f.active!==false?'bg-g':'bg-gr')}</td>
     <td class="tda">
       <button class="btn bg btn-xs" onclick="openFacForm('${f.id}')">✏️</button>
-      <button class="btn bd btn-xs" onclick="if(confirm('حذف المصنع؟')){DB.factories=DB.factories.filter(x=>x.id!=='${f.id}');saveDB();renderFactories();}">🗑️</button>
+      <button class="btn bd btn-xs" onclick="if(confirm('حذف المصنع؟')){DB.factories=DB.factories.filter(x=>x.id!=='${f.id}');DB._setupDone=true;saveDB();renderFactories();}">🗑️</button>
     </td>
   </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد مصانع</td></tr>`}
   </tbody></table></div>`;
@@ -2285,7 +2301,7 @@ function renderCameras2(){
     <td>${badge(c.active!==false?'نشطة':'معطلة',c.active!==false?'bg-g':'bg-r')}</td>
     <td class="tda">
       <button class="btn bg btn-xs" onclick="openCamForm('${c.id}')">✏️</button>
-      <button class="btn bd btn-xs" onclick="if(confirm('حذف؟')){DB.cameras=DB.cameras.filter(x=>x.id!=='${c.id}');saveDB();renderCameras();}">🗑️</button>
+      <button class="btn bd btn-xs" onclick="if(confirm('حذف؟')){DB.cameras=DB.cameras.filter(x=>x.id!=='${c.id}');DB._setupDone=true;saveDB();renderCameras();}">🗑️</button>
     </td>
   </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد كاميرات</td></tr>`}
   </tbody></table></div>`;
@@ -2533,10 +2549,32 @@ function openUpdateCenter(){
     <div style="font-size:12px;font-weight:700;color:var(--grn2);margin-bottom:8px">⚡ الإجراءات السريعة</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn bs btn-sm" onclick="doBackup()">💾 تصدير نسخة احتياطية الآن</button>
+      <button class="btn bc btn-sm" onclick="forceUpdateNow()" style="font-weight:900">⚡ فرض التحديث الآن</button>
       <button class="btn bg btn-sm" onclick="closeModal();goTo('backup')">⚙️ صفحة النسخ الاحتياطي</button>
-      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل التطبيق</button>
+      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل</button>
     </div>
   </div>`);
+}
+
+// Force Update Now — clear cache and reload fresh version
+function forceUpdateNow(){
+  if(!confirm('سيتم مسح النسخة المخزنة في المتصفح وإعادة تحميل أحدث نسخة.\n\nتأكد أنك حمّلت الملف الجديد في نفس المجلد أولاً.'))return;
+  saveDB(); // Save data first
+  toast('جاري حذف الكاش وإعادة التحميل...','inf');
+  setTimeout(()=>{
+    // Clear service worker cache if exists
+    if('caches' in window){
+      caches.keys().then(names=>names.forEach(n=>caches.delete(n)));
+    }
+    // Force reload bypassing cache
+    window.location.reload(true);
+  },600);
+}
+
+// Add force update button to sidebar (below change password)
+function addForceUpdateToSidebar(){
+  const el=document.getElementById('force-update-shortcut');
+  if(el)return;
 }
 
 // Force reload while preserving data
@@ -3029,6 +3067,22 @@ let sbReady = false;
 window._sbChannel = null;
 
 // ── Status indicator ──
+// Check and display Supabase connection
+async function checkSupabaseConnection(){
+  if(!sbReady||!sb){setSyncStatus('offline');return false;}
+  try{
+    const{data,error}=await sb.from('events').select('id').limit(1);
+    if(error)throw error;
+    setSyncStatus('connected');
+    toast('✅ Supabase متصل وشغال!','ok');
+    return true;
+  }catch(e){
+    setSyncStatus('error');
+    toast('❌ خطأ في الاتصال: '+e.message,'err');
+    return false;
+  }
+}
+
 function setSyncStatus(st){
   const el=document.getElementById('sync-status');if(!el)return;
   const S={connected:{t:'☁️ متصل',c:'var(--grn2)',b:'rgba(22,163,74,.1)',bc:'rgba(22,163,74,.3)'},syncing:{t:'🔄 يتزامن...',c:'var(--amb2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'},offline:{t:'📴 غير متصل',c:'var(--red2)',b:'rgba(220,38,38,.1)',bc:'rgba(220,38,38,.3)'},error:{t:'⚠️ خطأ',c:'var(--amber2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'}};
@@ -3245,6 +3299,12 @@ function openSyncPanel(){
     </button>
     <button class="btn bg" onclick="initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase())" style="justify-content:center">
       🔄 إعادة الاتصال
+    </button>
+    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">
+      🔌 اختبار الاتصال
+    </button>
+    <button class="btn bg" onclick="forceUpdateNow()" style="justify-content:center;color:var(--amber2);border-color:var(--amber)">
+      ⚡ فرض التحديث الآن
     </button>
   </div>
   <div style="margin-top:14px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.7">
