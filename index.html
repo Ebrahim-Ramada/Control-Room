@@ -393,7 +393,6 @@ body.light #loader{background:var(--bg)}
     <div class="ni" onclick="goTo('audit')"><span class="ic">📋</span> سجل التدقيق</div>
     <div class="ni" onclick="goTo('settings')"><span class="ic">⚙️</span> الإعدادات</div>
     <div class="ni ns" onclick="goTo('factories')"><span class="ic">🏭</span> المصانع</div>
-    <div class="ni ns" onclick="goTo('cameras')"><span class="ic">📷</span> الكاميرات</div>
     <div class="ni ns" onclick="goTo('users-mgmt')"><span class="ic">👥</span> المستخدمين</div>
     <div class="ni ns" onclick="goTo('types-mgmt')"><span class="ic">🏷️</span> أنواع البيانات</div>
     <div class="ni ns" onclick="goTo('sla-mgmt')"><span class="ic">⏱️</span> إعدادات SLA</div>
@@ -459,7 +458,6 @@ body.light #loader{background:var(--bg)}
     <div id="page-audit" class="page"></div>
     <div id="page-settings" class="page"></div>
     <div id="page-factories" class="page"></div>
-    <div id="page-cameras" class="page"></div>
     <div id="page-users-mgmt" class="page"></div>
     <div id="page-types-mgmt" class="page"></div>
     <div id="page-sla-mgmt" class="page"></div>
@@ -534,7 +532,7 @@ const USERS_DEF=[
 ];
 const EV_TYPES_DEF=['حدث أمني','مخالفة سلامة','مخالفة تشغيلية','مخالفة أمنية','حادث','سلوك مخالف','دخول غير مصرح','خروج غير مصرح','حركة غير طبيعية','مشكلة في إجراءات السلامة','ملاحظة أثناء المراقبة','مراجعة مطلوبة','إفادة مطلوبة','طلب متابعة','حدث آخر'];
 const VIO_TYPES_DEF=['مخالفة سلامة','مخالفة أمنية','مخالفة تشغيلية','مخالفة إجرائية','سلوك غير لائق','عدم ارتداء معدات الحماية','مخالفة دخول/خروج','إهمال في العمل','مخالفة أخرى'];
-const PAGE_TITLES={dashboard:'📊 لوحة التحكم',events:'📌 الأحداث',violations:'⚠️ المخالفات',reviews:'🔍 المراجعات',statements:'📝 الإفادات',followups:'📌 المتابعات',tasks:'📋 المهام',urgent:'🚨 تدخل فوري',search:'🔎 البحث الشامل',archive:'🗄️ الأرشيف','report-daily':'📅 التقرير اليومي','report-weekly':'📆 التقرير الأسبوعي','report-monthly':'🗓️ التقرير الشهري','report-annual':'📁 التقرير السنوي',analytics:'📈 الإحصائيات',comparisons:'⚖️ المقارنات','report-center':'📊 مركز التقارير','import-center':'📥 مركز الاستيراد','import-log':'📋 سجل الاستيراد',audit:'📋 سجل التدقيق',settings:'⚙️ الإعدادات',factories:'🏭 المصانع',cameras:'📷 الكاميرات','users-mgmt':'👥 المستخدمين','types-mgmt':'🏷️ أنواع البيانات','sla-mgmt':'⏱️ إعدادات SLA',backup:'💾 النسخ الاحتياطي'};
+const PAGE_TITLES={dashboard:'📊 لوحة التحكم',events:'📌 الأحداث',violations:'⚠️ المخالفات',reviews:'🔍 المراجعات',statements:'📝 الإفادات',followups:'📌 المتابعات',tasks:'📋 المهام',urgent:'🚨 تدخل فوري',search:'🔎 البحث الشامل',archive:'🗄️ الأرشيف','report-daily':'📅 التقرير اليومي','report-weekly':'📆 التقرير الأسبوعي','report-monthly':'🗓️ التقرير الشهري','report-annual':'📁 التقرير السنوي',analytics:'📈 الإحصائيات',comparisons:'⚖️ المقارنات','report-center':'📊 مركز التقارير','import-center':'📥 مركز الاستيراد','import-log':'📋 سجل الاستيراد',audit:'📋 سجل التدقيق',settings:'⚙️ الإعدادات',factories:'🏭 المصانع','users-mgmt':'👥 المستخدمين','types-mgmt':'🏷️ أنواع البيانات','sla-mgmt':'⏱️ إعدادات SLA',backup:'💾 النسخ الاحتياطي'};
 const MONTHS_AR=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const DAYS_AR=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 
@@ -553,7 +551,7 @@ const LS={
 let DB={
   events:[],violations:[],reviews:[],statements:[],
   followups:[],tasks:[],
-  factories:[],cameras:[],users:[],
+  factories:[],users:[],
   auditLog:[],importBatches:[],
   settings:{
     eventTypes:[],violationTypes:[],slaRules:[
@@ -765,7 +763,7 @@ function goTo(page){
     analytics:renderAnalytics,comparisons:renderComparisons,'report-center':renderReportCenter,
     'import-center':renderImportCenter,'import-log':renderImportLog,
     audit:renderAudit,settings:renderSettings,factories:renderFactories,
-    cameras:renderCameras,'users-mgmt':renderUsersMgmt,'types-mgmt':renderTypesMgmt,
+    'users-mgmt':renderUsersMgmt,'types-mgmt':renderTypesMgmt,
     'sla-mgmt':renderSlaMgmt,backup:renderBackup
   };
   try{if(R[page])R[page]();}catch(e){console.error('Render error:',e);}
@@ -937,62 +935,7 @@ function addSampleData(){
   if(DB.events.length>0){DB._setupDone=true;saveDB();return;}
   // Factories
   if(!DB.factories.length)DB.factories=FACTORIES_DEF.map((n,i)=>({id:'F'+(i+1),name:n,active:true,area:'المنطقة الصناعية',contact:''}));
-  // Cameras
-  if(!DB.cameras.length){DB.cameras=[];let c=1;FACTORIES_DEF.slice(0,4).forEach(f=>{for(let i=1;i<=5;i++){DB.cameras.push({id:'CAM-'+String(c++).padStart(2,'0'),name:`CAM-${String(c-1).padStart(2,'0')}`,factory:f,location:'',active:true});}});}
-  // Users
-  if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
-  // Settings types
-  if(!DB.settings.eventTypes)DB.settings.eventTypes=EV_TYPES_DEF.map(n=>({name:n,active:true}));
-  if(!DB.settings.violationTypes)DB.settings.violationTypes=VIO_TYPES_DEF.map(n=>({name:n,active:true}));
-  // Generate sample events
-  const now=new Date();
-  const evTypes=EV_TYPES_DEF;const factories=FACTORIES_DEF;const statuses=['مفتوح','تحت المتابعة','تم اتخاذ إجراء','مغلق','متأخر'];
-  const descs=['تم رصد عامل بدون معدات حماية في منطقة الآلات','دخول شخص غير مصرح له إلى منطقة مقيدة','تجمع غير اعتيادي أمام البوابة الرئيسية','ملاحظة مواد خطرة مخزنة بطريقة غير آمنة','مركبة توقفت في منطقة محظورة','تسرب سائل في منطقة التعبئة','عامل يستخدم هاتفه في منطقة ممنوعة','ملاحظة حركة غير طبيعية في المستودع','حالة انذار حريق — التحقق منها','وجود مواد غير معرّفة في منطقة الإنتاج','مخالفة إجرائية في خط الإنتاج','حادث بسيط — لا إصابات','سلوك مشبوه عند البوابة','مخالفة نظام الدخول والخروج','مشكلة في كاميرا المراقبة'];
-  const users=DB.users;
-  let d=new Date(now);d.setMonth(d.getMonth()-4);
-  for(let i=0;i<55;i++){
-    const dt=new Date(d);dt.setDate(d.getDate()+Math.floor(Math.random()*120));
-    const f=factories[Math.floor(Math.random()*factories.length)];
-    const s=SEVERITIES[Math.floor(Math.random()*SEVERITIES.length)];
-    const st=statuses[Math.floor(Math.random()*statuses.length)];
-    const reg=users[Math.floor(Math.random()*users.length)];
-    const cam=DB.cameras.filter(c=>c.factory===f)[0];
-    const ev={
-      id:nid('EVT',DB.events),date:dt.toISOString().split('T')[0],
-      time:`${7+Math.floor(Math.random()*12)}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,
-      factory:f,area:AREAS[Math.floor(Math.random()*AREAS.length)],
-      location:`خط ${Math.floor(Math.random()*5)+1}`,camera:cam?cam.name:'',
-      eventType:evTypes[Math.floor(Math.random()*evTypes.length)],
-      severity:s,status:st,
-      description:descs[Math.floor(Math.random()*descs.length)],
-      actionTaken:st!=='مفتوح'?'تم إبلاغ المشرف واتخاذ الإجراءات اللازمة':'',
-      concernedParty:`قسم ${AREAS[Math.floor(Math.random()*4)]}`,
-      registeredBy:reg.name,followUpResponsible:users[Math.floor(Math.random()*users.length)].name,
-      mainCategory:'سلامة وأمن',subCategory:'',
-      followUpDate:'',dueDate:'',notes:'',
-      closedDate:['مغلق','مكتمل','تم الحل'].includes(st)?dt.toISOString().split('T')[0]:'',
-      closedTime:'',escalation:0,
-      timeline:[{ts:dt.toISOString(),date:dt.toISOString().split('T')[0],time:tn(),action:'تم تسجيل الحدث',user:reg.name}],
-      createdAt:dt.toISOString(),images:[],linkedViolations:[],linkedStatements:[],importBatchId:null
-    };
-    DB.events.push(ev);
-  }
-  // Sample violations
-  for(let i=0;i<20;i++){
-    const dt=new Date(d);dt.setDate(d.getDate()+Math.floor(Math.random()*100));
-    const f=factories[Math.floor(Math.random()*factories.length)];
-    const ev=DB.events[Math.floor(Math.random()*DB.events.length)];
-    DB.violations.push({
-      id:nid('VIO',DB.violations),date:dt.toISOString().split('T')[0],
-      time:tn(),eventId:ev?.id||'',factory:f,
-      area:AREAS[Math.floor(Math.random()*AREAS.length)],location:'',
-      type:VIO_TYPES_DEF[Math.floor(Math.random()*VIO_TYPES_DEF.length)],
-      severity:SEVERITIES[Math.floor(Math.random()*SEVERITIES.length)],
-      description:descs[Math.floor(Math.random()*descs.length)],
-      concernedParty:'',status:VIO_STATUSES[Math.floor(Math.random()*VIO_STATUSES.length)],
-      actionTaken:'',followUpResponsible:'',notes:'',
-      createdAt:dt.toISOString(),timeline:[]
-    });
+  
   }
   // Sample reviews
   for(let i=0;i<10;i++){
@@ -1149,8 +1092,6 @@ function getEvTypes(){return(DB.settings.eventTypes||[]).filter(t=>t.active!==fa
 function getVioTypes(){return(DB.settings.violationTypes||[]).filter(t=>t.active!==false).map(t=>t.name||t);}
 function getUserNames(){return(DB.users.length?DB.users:USERS_DEF).filter(u=>u.active!==false).map(u=>u.name);}
 function getFactories(){return DB.factories.length?DB.factories.filter(f=>f.active!==false).map(f=>f.name):FACTORIES_DEF;}
-function getCameras(factory){const cams=DB.cameras.filter(c=>c.active!==false&&(!factory||c.factory===factory));return cams.map(c=>c.name);}
-
 function renderEvents(){
   const el=document.getElementById('page-events');if(!el)return;
   el.innerHTML=`
@@ -1232,12 +1173,12 @@ function evFormHTML(ev={}){
     <div class="fg"><label class="fl">الوقت *</label><input type="time" class="fc" id="ef-time" value="${ev.time||tn()}"></div>
   </div>
   <div class="form-row">
-    <div class="fg"><label class="fl">المصنع *</label><select class="fc" id="ef-fac" onchange="updateCameras()">${facs.map(f=>`<option ${ev.factory===f?'selected':''}>${f}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">المصنع *</label><select class="fc" id="ef-fac" >${facs.map(f=>`<option ${ev.factory===f?'selected':''}>${f}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">المنطقة</label><select class="fc" id="ef-area">${AREAS.map(a=>`<option ${ev.area===a?'selected':''}>${a}</option>`).join('')}</select></div>
   </div>
   <div class="form-row">
     <div class="fg"><label class="fl">الموقع</label><input type="text" class="fc" id="ef-loc" value="${esc(ev.location||'')}"></div>
-    <div class="fg"><label class="fl">الكاميرا</label><select class="fc" id="ef-cam"><option value="">— اختر كاميرا —</option>${getCameras(ev.factory).map(c=>`<option ${ev.camera===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    
   </div>
   <div class="form-row">
     <div class="fg"><label class="fl">نوع الحدث *</label><select class="fc" id="ef-type">${types.map(t=>`<option ${ev.eventType===t?'selected':''}>${t}</option>`).join('')}</select></div>
@@ -1264,11 +1205,7 @@ function evFormHTML(ev={}){
   <div class="fg"><label class="fl">ملاحظات</label><textarea class="fc" id="ef-notes">${esc(ev.notes||'')}</textarea></div>`;
 }
 
-function updateCameras(){
-  const fac=document.getElementById('ef-fac')?.value||'';
-  const sel=document.getElementById('ef-cam');
-  if(!sel)return;
-  sel.innerHTML=`<option value="">— اختر كاميرا —</option>${getCameras(fac).map(c=>`<option>${c}</option>`).join('')}`;
+</option>`).join('')}`;
 }
 
 function openEventForm(id=''){
@@ -1281,7 +1218,7 @@ function saveEvent(id=''){
   const desc=document.getElementById('ef-desc')?.value?.trim();
   const type=document.getElementById('ef-type')?.value;
   if(!date||!desc||!type){toast('يرجى ملء الحقول المطلوبة (*)','err');return;}
-  const data={date,time:document.getElementById('ef-time').value,factory:document.getElementById('ef-fac').value,area:document.getElementById('ef-area').value,location:document.getElementById('ef-loc').value,camera:document.getElementById('ef-cam').value,eventType:type,severity:document.getElementById('ef-sev').value,mainCategory:document.getElementById('ef-cat').value,subCategory:document.getElementById('ef-sub').value,description:desc,concernedParty:document.getElementById('ef-conc').value,registeredBy:document.getElementById('ef-reg').value,actionTaken:document.getElementById('ef-act').value,followUpResponsible:document.getElementById('ef-resp').value,status:document.getElementById('ef-sta').value,followUpDate:document.getElementById('ef-fud').value,dueDate:document.getElementById('ef-due').value,notes:document.getElementById('ef-notes').value};
+  const data={date,time:document.getElementById('ef-time').value,factory:document.getElementById('ef-fac').value,area:document.getElementById('ef-area').value,location:document.getElementById('ef-loc').value,eventType:type,severity:document.getElementById('ef-sev').value,mainCategory:document.getElementById('ef-cat').value,subCategory:document.getElementById('ef-sub').value,description:desc,concernedParty:document.getElementById('ef-conc').value,registeredBy:document.getElementById('ef-reg').value,actionTaken:document.getElementById('ef-act').value,followUpResponsible:document.getElementById('ef-resp').value,status:document.getElementById('ef-sta').value,followUpDate:document.getElementById('ef-fud').value,dueDate:document.getElementById('ef-due').value,notes:document.getElementById('ef-notes').value};
   if(id){
     const idx=DB.events.findIndex(e=>e.id===id);
     if(idx>-1){const old={...DB.events[idx]};DB.events[idx]={...DB.events[idx],...data};addTL(DB.events[idx],'تم تعديل بيانات الحدث');logAudit('تعديل','حدث',id,'',old,data);}
@@ -1392,7 +1329,6 @@ function openBulkEventForm(){
     <div class="fg"><label class="fl">الحالة</label><select class="fc" id="bef-sta">${EV_STATUSES.map(s=>`<option>${s}</option>`).join('')}</select></div>
   </div>
   <div class="fg"><label class="fl">المواقع (كل موقع في سطر جديد)</label><textarea class="fc" id="bef-locs" rows="4" placeholder="خط التجميع A&#10;خط التجميع B&#10;منطقة التعبئة"></textarea></div>
-  <div class="fg"><label class="fl">الكاميرات (اختياري، كل كاميرا في سطر)</label><textarea class="fc" id="bef-cams" rows="3" placeholder="CAM-01&#10;CAM-02"></textarea></div>
   <div class="fg"><label class="fl">وصف الحدث *</label><textarea class="fc" id="bef-desc"></textarea></div>
   <div class="fg"><label class="fl">الإجراء المتخذ</label><textarea class="fc" id="bef-act"></textarea></div>`,
   [{label:'✅ تسجيل الأحداث',cls:'bp',fn:'saveBulkEvents()'}]);
@@ -1400,12 +1336,12 @@ function openBulkEventForm(){
 
 function saveBulkEvents(){
   const locs=(document.getElementById('bef-locs')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  const cams=(document.getElementById('bef-cams')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const cams=[];
   const desc=document.getElementById('bef-desc')?.value?.trim();
   if(!locs.length||!desc){toast('أدخل موقعاً واحداً والوصف على الأقل','err');return;}
   const common={date:document.getElementById('bef-date').value,time:document.getElementById('bef-time').value,factory:document.getElementById('bef-fac').value,eventType:document.getElementById('bef-type').value,severity:document.getElementById('bef-sev').value,status:document.getElementById('bef-sta').value,description:desc,actionTaken:document.getElementById('bef-act').value,registeredBy:CUSER?.name||'',createdAt:new Date().toISOString(),escalation:0,timeline:[],images:[],linkedViolations:[],linkedStatements:[],closedDate:'',closedTime:''};
   locs.forEach((loc,i)=>{
-    const ev={...common,id:nid('EVT',DB.events),location:loc,camera:cams[i]||'',area:'',mainCategory:'',subCategory:'',concernedParty:'',followUpResponsible:'',followUpDate:'',dueDate:'',notes:''};
+    const ev={...common,id:nid('EVT',DB.events),location:loc,area:'',mainCategory:'',subCategory:'',concernedParty:'',followUpResponsible:'',followUpDate:'',dueDate:'',notes:''};
     addTL(ev,`تسجيل جماعي — الموقع: ${loc}`);DB.events.push(ev);
   });
   logAudit('استيراد جماعي','حدث','—',`تسجيل ${locs.length} حدث جماعي`);
@@ -2192,7 +2128,7 @@ async function iwExecImport(){
   for(let i=0;i<total;i++){
     const rec=toImp[i];setP(Math.round(30+(i/total*60)),`حفظ السجلات... ${i+1}/${total}`);
     try{let nr;if(IW.type==='violations')nr={id:nid('VIO',DB.violations),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',type:rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:VIO_STATUSES.includes(rec.status)?rec.status:'جديدة',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',followUpResponsible:'',notes:rec.notes||'',createdAt:new Date().toISOString(),timeline:[],importBatchId:IW.batchId};
-    else if(IW.type==='events')nr={id:nid('EVT',DB.events),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',camera:'',eventType:rec.eventType||rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:EV_STATUSES.includes(rec.status)?rec.status:'جديد',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',registeredBy:CUSER?.name||'',followUpResponsible:'',mainCategory:'',subCategory:'',followUpDate:'',dueDate:'',notes:rec.notes||'',closedDate:'',closedTime:'',escalation:0,timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:'استيراد جماعي',user:CUSER?.name||'النظام'}],images:[],linkedViolations:[],linkedStatements:[],createdAt:new Date().toISOString(),importBatchId:IW.batchId};
+    else if(IW.type==='events')nr={id:nid('EVT',DB.events),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',eventType:rec.eventType||rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:EV_STATUSES.includes(rec.status)?rec.status:'جديد',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',registeredBy:CUSER?.name||'',followUpResponsible:'',mainCategory:'',subCategory:'',followUpDate:'',dueDate:'',notes:rec.notes||'',closedDate:'',closedTime:'',escalation:0,timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:'استيراد جماعي',user:CUSER?.name||'النظام'}],images:[],linkedViolations:[],linkedStatements:[],createdAt:new Date().toISOString(),importBatchId:IW.batchId};
     else nr={id:nid('REV',DB.reviews),date:rec.date||td(),factory:rec.factory||'',area:'',location:'',subject:rec.subject||'',reason:'',what:'',responsible:rec.responsible||'',priority:PRIORITIES.includes(rec.priority)?rec.priority:'عادية',deadline:rec.deadline||'',status:REV_STATUSES.includes(rec.status)?rec.status:'جديدة',result:'',notes:rec.notes||'',createdAt:new Date().toISOString()};
     if(IW.type==='violations')DB.violations.push(nr);else if(IW.type==='events')DB.events.push(nr);else DB.reviews.push(nr);ids.push(nr.id);success++;}catch(e){failed++;}
     if(i%20===0)await sleep(5);
@@ -2246,7 +2182,7 @@ function renderSettings(){
   const el=document.getElementById('page-settings');if(!el)return;
   el.innerHTML=`<div class="sh"><div class="sh-t">⚙️ الإعدادات</div></div>
   <div class="grid3">
-    ${[{ic:'🏭',t:'إدارة المصانع',s:`${DB.factories.length} مصنع`,p:'factories'},{ic:'📷',t:'إدارة الكاميرات',s:`${DB.cameras.length} كاميرا`,p:'cameras'},{ic:'👥',t:'إدارة المستخدمين',s:`${DB.users.length} مستخدم`,p:'users-mgmt'},{ic:'🏷️',t:'أنواع البيانات',s:'أحداث ومخالفات',p:'types-mgmt'},{ic:'⏱️',t:'إعدادات SLA',s:`${(DB.settings.slaRules||[]).length} قاعدة`,p:'sla-mgmt'},{ic:'💾',t:'النسخ الاحتياطي',s:'استيراد وتصدير',p:'backup'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="goTo('${c.p}')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
+    ${[{ic:'🏭',t:'إدارة المصانع',s:`${DB.factories.length} مصنع`,p:'factories'},{ic:'👥',t:'إدارة المستخدمين',s:`${DB.users.length} مستخدم`,p:'users-mgmt'},{ic:'🏷️',t:'أنواع البيانات',s:'أحداث ومخالفات',p:'types-mgmt'},{ic:'⏱️',t:'إعدادات SLA',s:`${(DB.settings.slaRules||[]).length} قاعدة`,p:'sla-mgmt'},{ic:'💾',t:'النسخ الاحتياطي',s:'استيراد وتصدير',p:'backup'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="goTo('${c.p}')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
   </div>
   <div class="card" style="margin-top:4px"><div class="ctitle" style="margin-bottom:12px">📊 إحصائيات قاعدة البيانات</div>
   <div class="stats-grid">
@@ -2262,13 +2198,13 @@ function renderFactories(){
     <td style="color:var(--muted);font-size:11px">${f.id}</td>
     <td style="font-weight:700">${esc(f.name)}</td>
     <td>${esc(f.area||'—')}</td>
-    <td>${DB.cameras.filter(c=>c.factory===f.name).length}</td>
+    
     <td style="color:var(--blue2);font-weight:700">${DB.events.filter(e=>e.factory===f.name).length}</td>
     <td style="color:var(--amb2)">${DB.violations.filter(v=>v.factory===f.name).length}</td>
     <td>${badge(f.active!==false?'نشط':'معطل',f.active!==false?'bg-g':'bg-gr')}</td>
     <td class="tda">
       <button class="btn bg btn-xs" onclick="openFacForm('${f.id}')">✏️</button>
-      <button class="btn bd btn-xs" onclick="if(confirm('حذف المصنع؟')){DB.factories=DB.factories.filter(x=>x.id!=='${f.id}');DB._setupDone=true;saveDB();renderFactories();}">🗑️</button>
+      <button class="btn bd btn-xs" onclick="deleteFac('${f.id}')">🗑️</button>
     </td>
   </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد مصانع</td></tr>`}
   </tbody></table></div>`;
@@ -2285,56 +2221,13 @@ function openFacForm(id=''){
 function saveFac(id=''){
   const name=document.getElementById('ff-name')?.value?.trim();if(!name){toast('الاسم مطلوب','err');return;}
   const data={name,area:document.getElementById('ff-area').value,contact:document.getElementById('ff-contact').value,active:document.getElementById('ff-active').value==='1'};
-  if(id){const idx=DB.factories.findIndex(f=>f.id===id);if(idx>-1)DB.factories[idx]={...DB.factories[idx],...data};}
-  else DB.factories.push({...data,id:'F'+Date.now()});
-  saveDB();closeModal();renderFactories();toast('تم الحفظ ✅','ok');
+  if(id){const idx=DB.factories.findIndex(f=>f.id===id);if(idx>-1)DB.factories[idx]={...DB.factories[idx],...data};sbUpsert('factories',{...data,id});}
+  else{const fac={...data,id:'F'+Date.now()};DB.factories.push(fac);sbUpsert('factories',fac);}
+  DB._setupDone=true;saveDB();closeModal();renderFactories();toast('تم الحفظ ✅','ok');
 }
 
 // ══════════════════════════════════════════════════
-//  CAMERAS
-// ══════════════════════════════════════════════════
-function renderCameras(){
-  const el=document.getElementById('page-cameras');if(!el)return;
-  const facs=getFactories();
-  el.innerHTML=`<div class="sh"><div class="sh-t">📷 الكاميرات</div><button class="btn bp btn-sm" onclick="openCamForm()">➕ كاميرا جديدة</button></div>
-  <div class="fb"><select class="sft" id="cam-fac" onchange="renderCameras2()"><option value="">كل المصانع</option>${facs.map(f=>`<option>${f}</option>`).join('')}</select></div>
-  <div id="cam-list"></div>`;
-  renderCameras2();
-}
-function renderCameras2(){
-  const fac=document.getElementById('cam-fac')?.value||'';
-  const arr=DB.cameras.filter(c=>!fac||c.factory===fac);
-  const el=document.getElementById('cam-list');if(!el)return;
-  el.innerHTML=`<div class="tw"><table><thead><tr><th>الكود</th><th>الاسم</th><th>المصنع</th><th>الموقع</th><th>الأحداث</th><th>المخالفات</th><th>الحالة</th><th>إجراء</th></tr></thead>
-  <tbody>${arr.map(c=>`<tr>
-    <td style="color:var(--cyan);font-weight:700">${c.id}</td>
-    <td style="font-weight:700">${esc(c.name)}</td>
-    <td>${esc(c.factory||'—')}</td>
-    <td>${esc(c.location||'—')}</td>
-    <td style="color:var(--blue2)">${DB.events.filter(e=>e.camera===c.name).length}</td>
-    <td style="color:var(--amb2)">${DB.violations.filter(v=>v.camera===c.name).length}</td>
-    <td>${badge(c.active!==false?'نشطة':'معطلة',c.active!==false?'bg-g':'bg-r')}</td>
-    <td class="tda">
-      <button class="btn bg btn-xs" onclick="openCamForm('${c.id}')">✏️</button>
-      <button class="btn bd btn-xs" onclick="if(confirm('حذف؟')){DB.cameras=DB.cameras.filter(x=>x.id!=='${c.id}');DB._setupDone=true;saveDB();renderCameras();}">🗑️</button>
-    </td>
-  </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد كاميرات</td></tr>`}
-  </tbody></table></div>`;
-}
-function openCamForm(id=''){
-  const c=id?DB.cameras.find(x=>x.id===id):{};const facs=getFactories();
-  openModal(id?'✏️ تعديل كاميرا':'📷 كاميرا جديدة',`
-  <div class="form-row"><div class="fg"><label class="fl">اسم الكاميرا *</label><input type="text" class="fc" id="cf-name" value="${esc(c?.name||'')}"></div><div class="fg"><label class="fl">المصنع *</label><select class="fc" id="cf-fac">${facs.map(f=>`<option ${c?.factory===f?'selected':''}>${f}</option>`).join('')}</select></div></div>
-  <div class="form-row"><div class="fg"><label class="fl">المنطقة</label><select class="fc" id="cf-area">${AREAS.map(a=>`<option ${c?.location===a?'selected':''}>${a}</option>`).join('')}</select></div><div class="fg"><label class="fl">الوصف</label><input type="text" class="fc" id="cf-desc" value="${esc(c?.description||'')}"></div></div>
-  <div class="fg"><label class="fl">الحالة</label><select class="fc" id="cf-active"><option value="1" ${c?.active!==false?'selected':''}>نشطة</option><option value="0" ${c?.active===false?'selected':''}>معطلة</option></select></div>`,[{label:'✅ حفظ',cls:'bp',fn:`saveCam('${id}')`}]);
-}
-function saveCam(id=''){
-  const name=document.getElementById('cf-name')?.value?.trim();if(!name){toast('الاسم مطلوب','err');return;}
-  const data={name,factory:document.getElementById('cf-fac').value,location:document.getElementById('cf-area').value,description:document.getElementById('cf-desc').value,active:document.getElementById('cf-active').value==='1'};
-  if(id){const idx=DB.cameras.findIndex(c=>c.id===id);if(idx>-1)DB.cameras[idx]={...DB.cameras[idx],...data};}
-  else DB.cameras.push({...data,id:'CAM-'+String(DB.cameras.length+1).padStart(3,'0')});
-  saveDB();closeModal();renderCameras();toast('تم الحفظ ✅','ok');
-}
+
 
 // ══════════════════════════════════════════════════
 //  USERS MANAGEMENT
@@ -2637,7 +2530,7 @@ function evData(){
   return DB.events.map(e=>({
     'رقم الحدث':e.id,'التاريخ':e.date,'الوقت':e.time||'',
     'المصنع':e.factory||'','المنطقة':e.area||'','الموقع':e.location||'',
-    'الكاميرا':e.camera||'','نوع الحدث':e.eventType||'',
+    'نوع الحدث':e.eventType||'',
     'درجة الخطورة':e.severity||'','الحالة':e.status||'',
     'الوصف':e.description||'','الإجراء المتخذ':e.actionTaken||'',
     'الجهة المعنية':e.concernedParty||'','المسجِّل':e.registeredBy||'',
@@ -2874,7 +2767,7 @@ function evData(){
   return DB.events.map(e=>({
     'رقم الحدث':e.id,'التاريخ':e.date,'الوقت':e.time||'',
     'المصنع':e.factory||'','المنطقة':e.area||'','الموقع':e.location||'',
-    'الكاميرا':e.camera||'','نوع الحدث':e.eventType||'',
+    'نوع الحدث':e.eventType||'',
     'درجة الخطورة':e.severity||'','الحالة':e.status||'',
     'الوصف':e.description||'','الإجراء المتخذ':e.actionTaken||'',
     'الجهة المعنية':e.concernedParty||'','المسجِّل':e.registeredBy||'',
@@ -3106,7 +2999,7 @@ function setSyncStatus(st){
 }
 
 // ── Field maps: JS camelCase ↔ SQL snake_case ──
-const MAP_EV={id:'id',date:'date',time:'time',factory:'factory',area:'area',location:'location',camera:'camera',eventType:'event_type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',registeredBy:'registered_by',followUpResponsible:'follow_up_responsible',mainCategory:'main_category',subCategory:'sub_category',followUpDate:'follow_up_date',dueDate:'due_date',closedDate:'closed_date',closedTime:'closed_time',notes:'notes',escalation:'escalation',timeline:'timeline',images:'images',importBatchId:'import_batch_id',createdAt:'created_at'};
+const MAP_EV={id:'id',date:'date',time:'time',factory:'factory',area:'area',location:'location',eventType:'event_type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',registeredBy:'registered_by',followUpResponsible:'follow_up_responsible',mainCategory:'main_category',subCategory:'sub_category',followUpDate:'follow_up_date',dueDate:'due_date',closedDate:'closed_date',closedTime:'closed_time',notes:'notes',escalation:'escalation',timeline:'timeline',images:'images',importBatchId:'import_batch_id',createdAt:'created_at'};
 const MAP_VI={id:'id',date:'date',time:'time',eventId:'event_id',factory:'factory',area:'area',location:'location',type:'type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',followUpResponsible:'follow_up_responsible',notes:'notes',timeline:'timeline',createdAt:'created_at'};
 const MAP_RV={id:'id',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',createdAt:'created_at'};
 const MAP_STM={id:'id',date:'date',eventId:'event_id',violationId:'violation_id',party:'party',subject:'subject',text:'text',submitter:'submitter',submittedDate:'submitted_date',status:'status',notes:'notes',createdAt:'created_at'};
@@ -3186,21 +3079,29 @@ async function loadFromSupabase(){
   if(!sbReady)return false;
   setSyncStatus('syncing');
   try{
-    const[evs,vis,rvs,stms,fus,tks,usrs,facs,cams]=await Promise.all([
+    const[evs,vis,rvs,stms,fus,tks,usrs,facs]=await Promise.all([
       sbFetch('events',MAP_EV),sbFetch('violations',MAP_VI),sbFetch('reviews',MAP_RV),
       sbFetch('statements',MAP_STM),sbFetch('followups',MAP_FU),sbFetch('tasks',MAP_TK),
-      sbFetch('users',null),sbFetch('factories',null),sbFetch('cameras',null)
-    ]);
-    if(evs!==null)DB.events=evs;
-    if(vis!==null)DB.violations=vis;
-    if(rvs!==null)DB.reviews=rvs;
-    if(stms!==null)DB.statements=stms;
-    if(fus!==null)DB.followups=fus;
-    if(tks!==null)DB.tasks=tks;
-    if(usrs!==null&&usrs.length)DB.users=usrs;
-    if(facs!==null&&facs.length)DB.factories=facs;
-    if(cams!==null&&cams.length)DB.cameras=cams;
-    // Cache locally
+      sbFetch('users',null),sbFetch('factories',null),]);
+
+    // Check if Supabase was ever initialized (has any data)
+    const sbHasData=(evs&&evs.length>0)||(vis&&vis.length>0)||(facs&&facs.length>0);
+
+    if(sbHasData){
+      // ✅ Supabase is source of truth — use it fully (includes deletions)
+      if(evs!==null)DB.events=evs;
+      if(vis!==null)DB.violations=vis;
+      if(rvs!==null)DB.reviews=rvs;
+      if(stms!==null)DB.statements=stms;
+      if(fus!==null)DB.followups=fus;
+      if(tks!==null)DB.tasks=tks;
+      if(usrs!==null&&usrs.length>0)DB.users=usrs;
+      if(facs!==null)DB.factories=facs;  // Full sync — deletions included// Full sync — deletions included
+    } else {
+      // Supabase is empty — keep local data (first time setup)
+      console.log('Supabase empty — keeping local data');
+    }
+
     LS.set('ccr_pro_db',JSON.stringify(DB));
     setSyncStatus('connected');
     return true;
@@ -3233,9 +3134,7 @@ async function fullSyncToSupabase(){
       ...DB.followups.map(f=>sbUpsert('followups',toRow(f,MAP_FU))),
       ...DB.tasks.map(t=>sbUpsert('tasks',toRow(t,MAP_TK))),
       ...DB.users.map(u=>sbUpsert('users',u)),
-      ...DB.factories.map(f=>sbUpsert('factories',f)),
-      ...DB.cameras.map(c=>sbUpsert('cameras',c)),
-    ]);
+      ...DB.factories.map(f=>sbUpsert('factories',f)),]);
     setSyncStatus('connected');
     toast(`✅ تم الرفع — ${DB.events.length} حدث | ${DB.violations.length} مخالفة | ${DB.reviews.length} مراجعة`,'ok');
     logAudit('رفع كامل إلى السحابة','Supabase','—',`${DB.events.length+DB.violations.length+DB.reviews.length} سجل`);
