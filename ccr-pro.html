@@ -384,6 +384,7 @@ body.light #loader{background:var(--bg)}
     <div class="ni ns" onclick="goTo('sla-mgmt')"><span class="ic">⏱️</span> إعدادات SLA</div>
     <div class="ni ns" onclick="goTo('backup')"><span class="ic">💾</span> النسخ الاحتياطي</div>
     <div style="padding:14px;border-top:1px solid var(--border);margin-top:8px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn bg btn-sm" style="width:100%;color:var(--cyan);border-color:var(--cyan)" onclick="openUpdateCenter()">🔄 تحديث النسخة</button>
       <button class="btn bg btn-sm" style="width:100%" onclick="openChangePassword()">🔑 تغيير كلمة المرور</button>
       <button class="btn bg btn-sm" style="width:100%;color:var(--red2);border-color:var(--red)" onclick="doLogout()">🚪 تسجيل الخروج</button>
     </div>
@@ -2413,6 +2414,15 @@ function renderBackup(){
   const el=document.getElementById('page-backup');if(!el)return;
   const sz=JSON.stringify(DB).length;
   el.innerHTML=`<div class="sh"><div class="sh-t">💾 النسخ الاحتياطي</div></div>
+  <div class="card" style="background:rgba(6,184,212,.06);border-color:rgba(6,184,212,.3);margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--cyan)">🔄 تحديث نسخة التطبيق</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">احفظ بياناتك ثم حمّل أحدث نسخة من المحادثة</div>
+      </div>
+      <button class="btn bc btn-sm" onclick="openUpdateCenter()">🔄 مركز التحديث</button>
+    </div>
+  </div>
   <div class="grid2">
     <div class="card" style="text-align:center">
       <div style="font-size:40px;margin-bottom:12px">📤</div>
@@ -2447,8 +2457,84 @@ function doRestore(input){
   const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.events||d.violations){Object.assign(DB,d);saveDB();toast('تمت الاستعادة ✅','ok');goTo('dashboard');}else toast('ملف غير صالح','err');}catch{toast('خطأ في قراءة الملف','err');}};r.readAsText(f);}
 
 // ══════════════════════════════════════════════════
-//  EXPORT ENGINE — موحد لجميع الأقسام
+//  UPDATE CENTER — فرض تحديث النسخة
 // ══════════════════════════════════════════════════
+const APP_VERSION = '2.5.0';
+const APP_BUILD   = '2026-09-19';
+
+function openUpdateCenter(){
+  const dbSize = Math.round(JSON.stringify(DB).length / 1024);
+  const evCount = DB.events.length;
+  const viCount = DB.violations.length;
+  const rvCount = DB.reviews.length;
+  openModal('🔄 تحديث النسخة',`
+  <!-- Current version info -->
+  <div style="background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:10px;padding:14px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:28px">🏭</span>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:var(--text)">نظام غرفة المراقبة المركزية</div>
+        <div style="font-size:11px;color:var(--muted)">الإصدار: <strong style="color:var(--blue2)">${APP_VERSION}</strong> &nbsp;|&nbsp; ${APP_BUILD}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:80px;text-align:center;padding:8px;background:var(--bg2);border-radius:8px">
+        <div style="font-size:18px;font-weight:900;color:var(--blue2)">${evCount}</div>
+        <div style="font-size:10px;color:var(--muted)">أحداث</div>
+      </div>
+      <div style="flex:1;min-width:80px;text-align:center;padding:8px;background:var(--bg2);border-radius:8px">
+        <div style="font-size:18px;font-weight:900;color:var(--amber2)">${viCount}</div>
+        <div style="font-size:10px;color:var(--muted)">مخالفات</div>
+      </div>
+      <div style="flex:1;min-width:80px;text-align:center;padding:8px;background:var(--bg2);border-radius:8px">
+        <div style="font-size:18px;font-weight:900;color:var(--purp2)">${rvCount}</div>
+        <div style="font-size:10px;color:var(--muted)">مراجعات</div>
+      </div>
+      <div style="flex:1;min-width:80px;text-align:center;padding:8px;background:var(--bg2);border-radius:8px">
+        <div style="font-size:18px;font-weight:900;color:var(--grn2)">${dbSize} KB</div>
+        <div style="font-size:10px;color:var(--muted)">حجم البيانات</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to update -->
+  <div style="margin-bottom:14px">
+    <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px">📋 خطوات التحديث الآمن:</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${[
+        {n:'1',ic:'💾',t:'احفظ بياناتك أولاً',s:'اضغط "تصدير النسخة الاحتياطية" للحفاظ على كل بياناتك',btn:'doBackup()',btnL:'💾 تصدير النسخة الاحتياطية',cls:'bp'},
+        {n:'2',ic:'📥',t:'حمّل آخر نسخة',s:'افتح محادثة Claude واضغط على آخر ملف تم إرساله',btn:null},
+        {n:'3',ic:'🔄',t:'افتح النسخة الجديدة',s:'افتح الملف الجديد في نفس المتصفح — بياناتك ستظهر تلقائياً',btn:null},
+        {n:'4',ic:'📤',t:'لو البيانات مش ظاهرة',s:'روح الإعدادات ← النسخ الاحتياطي ← استعادة — وارفع ملف JSON',btn:null},
+      ].map(s=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--bg2);border-radius:9px;border:1px solid var(--border)">
+        <div style="width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0">${s.n}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text)">${s.ic} ${s.t}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5">${s.s}</div>
+          ${s.btn?`<button class="btn ${s.cls} btn-xs" style="margin-top:6px" onclick="${s.btn}">${s.btnL}</button>`:''}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div style="background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--grn2);margin-bottom:8px">⚡ الإجراءات السريعة</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bs btn-sm" onclick="doBackup()">💾 تصدير نسخة احتياطية الآن</button>
+      <button class="btn bg btn-sm" onclick="closeModal();goTo('backup')">⚙️ صفحة النسخ الاحتياطي</button>
+      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل التطبيق</button>
+    </div>
+  </div>`);
+}
+
+// Force reload while preserving data
+function forceReloadApp(){
+  if(!confirm('إعادة تحميل التطبيق؟\nسيتم حفظ بياناتك تلقائياً قبل الإعادة.'))return;
+  saveDB();
+  toast('جاري حفظ البيانات وإعادة التحميل...','inf');
+  setTimeout(()=>window.location.reload(),800);
+}
 
 // ── Library Loader ──
 function loadLib(varName, url){
