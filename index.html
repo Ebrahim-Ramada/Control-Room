@@ -3,22 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>غرفة المراقبة المركزية</title>
-
-<!-- PWA Meta Tags -->
-<meta name="application-name" content="غرفة المراقبة">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="غرفة المراقبة">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#060c1a">
-<meta name="description" content="نظام إدارة غرفة المراقبة المركزية">
-
-<!-- PWA Manifest (inline as data URI) -->
-<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22%D9%86%D8%B8%D8%A7%D9%85%20%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D9%83%D8%B2%D9%8A%D8%A9%22%2C%22short_name%22%3A%22%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23060c1a%22%2C%22theme_color%22%3A%22%23060c1a%22%2C%22orientation%22%3A%22any%22%2C%22lang%22%3A%22ar%22%2C%22dir%22%3A%22rtl%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iODAiIGZpbGw9IiMwNjBjMWEiLz48dGV4dCB4PSI1MCUiIHk9IjU1JSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyODAiPvCfj608L3RleHQ%2BPC9zdmc%2B%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D">
-
-<!-- Apple Touch Icon (SVG factory emoji) -->
-<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMDYwYzFhIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMjgwIj7wn4+9PC90ZXh0Pjwvc3ZnPg==">
+<title>نظام إدارة غرفة المراقبة المركزية — Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
 /* ═══════════════════════════════════════════════════
@@ -415,7 +400,6 @@ body.light #loader{background:var(--bg)}
     </div>
     <div class="tb-r">
       <div id="tb-dt" style="font-size:11px;color:var(--muted);display:none;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:5px 10px;white-space:nowrap"></div>
-      <div id="sync-status" title="حالة التزامن مع السحابة" style="font-size:11px;padding:4px 9px;border-radius:6px;background:var(--card);border:1px solid var(--border);cursor:pointer;white-space:nowrap" onclick="openSyncPanel()">⏳ جاري الاتصال...</div>
       <button class="btn bg btn-sm no-print" onclick="window.print()" title="طباعة">🖨️</button>
       <button id="theme-btn" onclick="toggleTheme()" title="الوضع" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center">🌙</button>
     </div>
@@ -458,6 +442,7 @@ body.light #loader{background:var(--bg)}
     <div id="page-audit" class="page"></div>
     <div id="page-settings" class="page"></div>
     <div id="page-factories" class="page"></div>
+    <div id="page-cameras" class="page"></div>
     <div id="page-users-mgmt" class="page"></div>
     <div id="page-types-mgmt" class="page"></div>
     <div id="page-sla-mgmt" class="page"></div>
@@ -532,7 +517,7 @@ const USERS_DEF=[
 ];
 const EV_TYPES_DEF=['حدث أمني','مخالفة سلامة','مخالفة تشغيلية','مخالفة أمنية','حادث','سلوك مخالف','دخول غير مصرح','خروج غير مصرح','حركة غير طبيعية','مشكلة في إجراءات السلامة','ملاحظة أثناء المراقبة','مراجعة مطلوبة','إفادة مطلوبة','طلب متابعة','حدث آخر'];
 const VIO_TYPES_DEF=['مخالفة سلامة','مخالفة أمنية','مخالفة تشغيلية','مخالفة إجرائية','سلوك غير لائق','عدم ارتداء معدات الحماية','مخالفة دخول/خروج','إهمال في العمل','مخالفة أخرى'];
-const PAGE_TITLES={dashboard:'📊 لوحة التحكم',events:'📌 الأحداث',violations:'⚠️ المخالفات',reviews:'🔍 المراجعات',statements:'📝 الإفادات',followups:'📌 المتابعات',tasks:'📋 المهام',urgent:'🚨 تدخل فوري',search:'🔎 البحث الشامل',archive:'🗄️ الأرشيف','report-daily':'📅 التقرير اليومي','report-weekly':'📆 التقرير الأسبوعي','report-monthly':'🗓️ التقرير الشهري','report-annual':'📁 التقرير السنوي',analytics:'📈 الإحصائيات',comparisons:'⚖️ المقارنات','report-center':'📊 مركز التقارير','import-center':'📥 مركز الاستيراد','import-log':'📋 سجل الاستيراد',audit:'📋 سجل التدقيق',settings:'⚙️ الإعدادات',factories:'🏭 المصانع','users-mgmt':'👥 المستخدمين','types-mgmt':'🏷️ أنواع البيانات','sla-mgmt':'⏱️ إعدادات SLA',backup:'💾 النسخ الاحتياطي'};
+const PAGE_TITLES={dashboard:'📊 لوحة التحكم',events:'📌 الأحداث',violations:'⚠️ المخالفات',reviews:'🔍 المراجعات',statements:'📝 الإفادات',followups:'📌 المتابعات',tasks:'📋 المهام',urgent:'🚨 تدخل فوري',search:'🔎 البحث الشامل',archive:'🗄️ الأرشيف','report-daily':'📅 التقرير اليومي','report-weekly':'📆 التقرير الأسبوعي','report-monthly':'🗓️ التقرير الشهري','report-annual':'📁 التقرير السنوي',analytics:'📈 الإحصائيات',comparisons:'⚖️ المقارنات','report-center':'📊 مركز التقارير','import-center':'📥 مركز الاستيراد','import-log':'📋 سجل الاستيراد',audit:'📋 سجل التدقيق',settings:'⚙️ الإعدادات',factories:'🏭 المصانع',cameras:'📷 الكاميرات','users-mgmt':'👥 المستخدمين','types-mgmt':'🏷️ أنواع البيانات','sla-mgmt':'⏱️ إعدادات SLA',backup:'💾 النسخ الاحتياطي'};
 const MONTHS_AR=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const DAYS_AR=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 
@@ -551,7 +536,7 @@ const LS={
 let DB={
   events:[],violations:[],reviews:[],statements:[],
   followups:[],tasks:[],
-  factories:[],users:[],
+  factories:[],cameras:[],users:[],
   auditLog:[],importBatches:[],
   settings:{
     eventTypes:[],violationTypes:[],slaRules:[
@@ -763,7 +748,7 @@ function goTo(page){
     analytics:renderAnalytics,comparisons:renderComparisons,'report-center':renderReportCenter,
     'import-center':renderImportCenter,'import-log':renderImportLog,
     audit:renderAudit,settings:renderSettings,factories:renderFactories,
-    'users-mgmt':renderUsersMgmt,'types-mgmt':renderTypesMgmt,
+    cameras:renderCameras,'users-mgmt':renderUsersMgmt,'types-mgmt':renderTypesMgmt,
     'sla-mgmt':renderSlaMgmt,backup:renderBackup
   };
   try{if(R[page])R[page]();}catch(e){console.error('Render error:',e);}
@@ -931,11 +916,66 @@ function mkLine(id,labels,datasets){
 //  SAMPLE DATA
 // ══════════════════════════════════════════════════
 function addSampleData(){
-  if(DB._setupDone)return;   // already initialized once — don't overwrite
+  if(DB._setupDone)return;
   if(DB.events.length>0){DB._setupDone=true;saveDB();return;}
   // Factories
   if(!DB.factories.length)DB.factories=FACTORIES_DEF.map((n,i)=>({id:'F'+(i+1),name:n,active:true,area:'المنطقة الصناعية',contact:''}));
-  
+  // Cameras
+  if(!DB.cameras.length){DB.cameras=[];let c=1;FACTORIES_DEF.slice(0,4).forEach(f=>{for(let i=1;i<=5;i++){DB.cameras.push({id:'CAM-'+String(c++).padStart(2,'0'),name:`CAM-${String(c-1).padStart(2,'0')}`,factory:f,location:'',active:true});}});}
+  // Users
+  if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
+  // Settings types
+  if(!DB.settings.eventTypes)DB.settings.eventTypes=EV_TYPES_DEF.map(n=>({name:n,active:true}));
+  if(!DB.settings.violationTypes)DB.settings.violationTypes=VIO_TYPES_DEF.map(n=>({name:n,active:true}));
+  // Generate sample events
+  const now=new Date();
+  const evTypes=EV_TYPES_DEF;const factories=FACTORIES_DEF;const statuses=['مفتوح','تحت المتابعة','تم اتخاذ إجراء','مغلق','متأخر'];
+  const descs=['تم رصد عامل بدون معدات حماية في منطقة الآلات','دخول شخص غير مصرح له إلى منطقة مقيدة','تجمع غير اعتيادي أمام البوابة الرئيسية','ملاحظة مواد خطرة مخزنة بطريقة غير آمنة','مركبة توقفت في منطقة محظورة','تسرب سائل في منطقة التعبئة','عامل يستخدم هاتفه في منطقة ممنوعة','ملاحظة حركة غير طبيعية في المستودع','حالة انذار حريق — التحقق منها','وجود مواد غير معرّفة في منطقة الإنتاج','مخالفة إجرائية في خط الإنتاج','حادث بسيط — لا إصابات','سلوك مشبوه عند البوابة','مخالفة نظام الدخول والخروج','مشكلة في كاميرا المراقبة'];
+  const users=DB.users;
+  let d=new Date(now);d.setMonth(d.getMonth()-4);
+  for(let i=0;i<55;i++){
+    const dt=new Date(d);dt.setDate(d.getDate()+Math.floor(Math.random()*120));
+    const f=factories[Math.floor(Math.random()*factories.length)];
+    const s=SEVERITIES[Math.floor(Math.random()*SEVERITIES.length)];
+    const st=statuses[Math.floor(Math.random()*statuses.length)];
+    const reg=users[Math.floor(Math.random()*users.length)];
+    const cam=DB.cameras.filter(c=>c.factory===f)[0];
+    const ev={
+      id:nid('EVT',DB.events),date:dt.toISOString().split('T')[0],
+      time:`${7+Math.floor(Math.random()*12)}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,
+      factory:f,area:AREAS[Math.floor(Math.random()*AREAS.length)],
+      location:`خط ${Math.floor(Math.random()*5)+1}`,camera:cam?cam.name:'',
+      eventType:evTypes[Math.floor(Math.random()*evTypes.length)],
+      severity:s,status:st,
+      description:descs[Math.floor(Math.random()*descs.length)],
+      actionTaken:st!=='مفتوح'?'تم إبلاغ المشرف واتخاذ الإجراءات اللازمة':'',
+      concernedParty:`قسم ${AREAS[Math.floor(Math.random()*4)]}`,
+      registeredBy:reg.name,followUpResponsible:users[Math.floor(Math.random()*users.length)].name,
+      mainCategory:'سلامة وأمن',subCategory:'',
+      followUpDate:'',dueDate:'',notes:'',
+      closedDate:['مغلق','مكتمل','تم الحل'].includes(st)?dt.toISOString().split('T')[0]:'',
+      closedTime:'',escalation:0,
+      timeline:[{ts:dt.toISOString(),date:dt.toISOString().split('T')[0],time:tn(),action:'تم تسجيل الحدث',user:reg.name}],
+      createdAt:dt.toISOString(),images:[],linkedViolations:[],linkedStatements:[],importBatchId:null
+    };
+    DB.events.push(ev);
+  }
+  // Sample violations
+  for(let i=0;i<20;i++){
+    const dt=new Date(d);dt.setDate(d.getDate()+Math.floor(Math.random()*100));
+    const f=factories[Math.floor(Math.random()*factories.length)];
+    const ev=DB.events[Math.floor(Math.random()*DB.events.length)];
+    DB.violations.push({
+      id:nid('VIO',DB.violations),date:dt.toISOString().split('T')[0],
+      time:tn(),eventId:ev?.id||'',factory:f,
+      area:AREAS[Math.floor(Math.random()*AREAS.length)],location:'',
+      type:VIO_TYPES_DEF[Math.floor(Math.random()*VIO_TYPES_DEF.length)],
+      severity:SEVERITIES[Math.floor(Math.random()*SEVERITIES.length)],
+      description:descs[Math.floor(Math.random()*descs.length)],
+      concernedParty:'',status:VIO_STATUSES[Math.floor(Math.random()*VIO_STATUSES.length)],
+      actionTaken:'',followUpResponsible:'',notes:'',
+      createdAt:dt.toISOString(),timeline:[]
+    });
   }
   // Sample reviews
   for(let i=0;i<10;i++){
@@ -962,7 +1002,6 @@ function addSampleData(){
       relatedEntity:'',relatedId:'',notes:'',createdAt:new Date().toISOString()
     });
   }
-  DB._setupDone=true;
   saveDB();
 }
 
@@ -1092,6 +1131,8 @@ function getEvTypes(){return(DB.settings.eventTypes||[]).filter(t=>t.active!==fa
 function getVioTypes(){return(DB.settings.violationTypes||[]).filter(t=>t.active!==false).map(t=>t.name||t);}
 function getUserNames(){return(DB.users.length?DB.users:USERS_DEF).filter(u=>u.active!==false).map(u=>u.name);}
 function getFactories(){return DB.factories.length?DB.factories.filter(f=>f.active!==false).map(f=>f.name):FACTORIES_DEF;}
+function getCameras(factory){const cams=DB.cameras.filter(c=>c.active!==false&&(!factory||c.factory===factory));return cams.map(c=>c.name);}
+
 function renderEvents(){
   const el=document.getElementById('page-events');if(!el)return;
   el.innerHTML=`
@@ -1173,13 +1214,10 @@ function evFormHTML(ev={}){
     <div class="fg"><label class="fl">الوقت *</label><input type="time" class="fc" id="ef-time" value="${ev.time||tn()}"></div>
   </div>
   <div class="form-row">
-    <div class="fg"><label class="fl">المصنع *</label><select class="fc" id="ef-fac" >${facs.map(f=>`<option ${ev.factory===f?'selected':''}>${f}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">المصنع *</label><select class="fc" id="ef-fac" onchange="updateCameras()">${facs.map(f=>`<option ${ev.factory===f?'selected':''}>${f}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">المنطقة</label><select class="fc" id="ef-area">${AREAS.map(a=>`<option ${ev.area===a?'selected':''}>${a}</option>`).join('')}</select></div>
   </div>
-  <div class="form-row">
-    <div class="fg"><label class="fl">الموقع</label><input type="text" class="fc" id="ef-loc" value="${esc(ev.location||'')}"></div>
-    
-  </div>
+  <div class="fg"><label class="fl">الموقع</label><input type="text" class="fc" id="ef-loc" value="${esc(ev.location||'')}"></div>
   <div class="form-row">
     <div class="fg"><label class="fl">نوع الحدث *</label><select class="fc" id="ef-type">${types.map(t=>`<option ${ev.eventType===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">درجة الخطورة *</label><select class="fc" id="ef-sev">${SEVERITIES.map(s=>`<option ${ev.severity===s?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -1205,7 +1243,11 @@ function evFormHTML(ev={}){
   <div class="fg"><label class="fl">ملاحظات</label><textarea class="fc" id="ef-notes">${esc(ev.notes||'')}</textarea></div>`;
 }
 
-</option>`).join('')}`;
+function updateCameras(){
+  const fac=document.getElementById('ef-fac')?.value||'';
+  const sel=document.getElementById('ef-cam');
+  if(!sel)return;
+  sel.innerHTML=`<option value="">— اختر كاميرا —</option>${getCameras(fac).map(c=>`<option>${c}</option>`).join('')}`;
 }
 
 function openEventForm(id=''){
@@ -1218,7 +1260,7 @@ function saveEvent(id=''){
   const desc=document.getElementById('ef-desc')?.value?.trim();
   const type=document.getElementById('ef-type')?.value;
   if(!date||!desc||!type){toast('يرجى ملء الحقول المطلوبة (*)','err');return;}
-  const data={date,time:document.getElementById('ef-time').value,factory:document.getElementById('ef-fac').value,area:document.getElementById('ef-area').value,location:document.getElementById('ef-loc').value,eventType:type,severity:document.getElementById('ef-sev').value,mainCategory:document.getElementById('ef-cat').value,subCategory:document.getElementById('ef-sub').value,description:desc,concernedParty:document.getElementById('ef-conc').value,registeredBy:document.getElementById('ef-reg').value,actionTaken:document.getElementById('ef-act').value,followUpResponsible:document.getElementById('ef-resp').value,status:document.getElementById('ef-sta').value,followUpDate:document.getElementById('ef-fud').value,dueDate:document.getElementById('ef-due').value,notes:document.getElementById('ef-notes').value};
+  const data={date,time:document.getElementById('ef-time').value,factory:document.getElementById('ef-fac').value,area:document.getElementById('ef-area').value,location:document.getElementById('ef-loc').value,camera:document.getElementById('ef-cam').value,eventType:type,severity:document.getElementById('ef-sev').value,mainCategory:document.getElementById('ef-cat').value,subCategory:document.getElementById('ef-sub').value,description:desc,concernedParty:document.getElementById('ef-conc').value,registeredBy:document.getElementById('ef-reg').value,actionTaken:document.getElementById('ef-act').value,followUpResponsible:document.getElementById('ef-resp').value,status:document.getElementById('ef-sta').value,followUpDate:document.getElementById('ef-fud').value,dueDate:document.getElementById('ef-due').value,notes:document.getElementById('ef-notes').value};
   if(id){
     const idx=DB.events.findIndex(e=>e.id===id);
     if(idx>-1){const old={...DB.events[idx]};DB.events[idx]={...DB.events[idx],...data};addTL(DB.events[idx],'تم تعديل بيانات الحدث');logAudit('تعديل','حدث',id,'',old,data);}
@@ -1229,13 +1271,11 @@ function saveEvent(id=''){
   }
   saveDB();closeModal();updateBadges();runSLA();
   const evId2=id||(DB.events[DB.events.length-1]?.id)||'';
-  const savedEv=DB.events.find(e=>e.id===evId2);
-  if(savedEv)sbSyncEv(savedEv);
   if(id){toast('تم حفظ التعديلات ✅','ok');trackAction('تعديل','حدث',id,'تعديل الحدث '+id,'events');}
   else{trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
 }
 
-function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);sbDelete('events',id);logAudit('حذف','حدث',id,'');saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
+function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);logAudit('حذف','حدث',id,'');saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
 
 function changeStatusModal(id,entity='ev'){
   const arr=entity==='ev'?DB.events:entity==='vi'?DB.violations:DB.reviews;
@@ -1329,6 +1369,7 @@ function openBulkEventForm(){
     <div class="fg"><label class="fl">الحالة</label><select class="fc" id="bef-sta">${EV_STATUSES.map(s=>`<option>${s}</option>`).join('')}</select></div>
   </div>
   <div class="fg"><label class="fl">المواقع (كل موقع في سطر جديد)</label><textarea class="fc" id="bef-locs" rows="4" placeholder="خط التجميع A&#10;خط التجميع B&#10;منطقة التعبئة"></textarea></div>
+
   <div class="fg"><label class="fl">وصف الحدث *</label><textarea class="fc" id="bef-desc"></textarea></div>
   <div class="fg"><label class="fl">الإجراء المتخذ</label><textarea class="fc" id="bef-act"></textarea></div>`,
   [{label:'✅ تسجيل الأحداث',cls:'bp',fn:'saveBulkEvents()'}]);
@@ -1336,12 +1377,12 @@ function openBulkEventForm(){
 
 function saveBulkEvents(){
   const locs=(document.getElementById('bef-locs')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  const cams=[];
+  const cams=(document.getElementById('bef-cams')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const desc=document.getElementById('bef-desc')?.value?.trim();
   if(!locs.length||!desc){toast('أدخل موقعاً واحداً والوصف على الأقل','err');return;}
   const common={date:document.getElementById('bef-date').value,time:document.getElementById('bef-time').value,factory:document.getElementById('bef-fac').value,eventType:document.getElementById('bef-type').value,severity:document.getElementById('bef-sev').value,status:document.getElementById('bef-sta').value,description:desc,actionTaken:document.getElementById('bef-act').value,registeredBy:CUSER?.name||'',createdAt:new Date().toISOString(),escalation:0,timeline:[],images:[],linkedViolations:[],linkedStatements:[],closedDate:'',closedTime:''};
   locs.forEach((loc,i)=>{
-    const ev={...common,id:nid('EVT',DB.events),location:loc,area:'',mainCategory:'',subCategory:'',concernedParty:'',followUpResponsible:'',followUpDate:'',dueDate:'',notes:''};
+    const ev={...common,id:nid('EVT',DB.events),location:loc,camera:cams[i]||'',area:'',mainCategory:'',subCategory:'',concernedParty:'',followUpResponsible:'',followUpDate:'',dueDate:'',notes:''};
     addTL(ev,`تسجيل جماعي — الموقع: ${loc}`);DB.events.push(ev);
   });
   logAudit('استيراد جماعي','حدث','—',`تسجيل ${locs.length} حدث جماعي`);
@@ -1453,7 +1494,6 @@ function saveVio(id=''){
   else{const v={...data,id:nid('VIO',DB.violations),createdAt:new Date().toISOString(),timeline:[]};DB.violations.push(v);logAudit('إضافة','مخالفة',v.id,'');}
   saveDB();closeModal();updateBadges();
   const viId2=id||(DB.violations[DB.violations.length-1]?.id)||'';
-  const savedVi=DB.violations.find(v=>v.id===viId2);if(savedVi)sbSyncVi(savedVi);
   if(id)trackAction('تعديل','مخالفة',id,'تعديل المخالفة '+id,'violations');
   else trackAction('إضافة','مخالفة',viId2,'مخالفة جديدة: '+viId2,'violations');
   toast('تم الحفظ ✅','ok');
@@ -1525,7 +1565,6 @@ function saveRev(id=''){
   else{const r={...data,id:nid('REV',DB.reviews),createdAt:new Date().toISOString()};DB.reviews.push(r);logAudit('إضافة','مراجعة',r.id,'');}
   saveDB();closeModal();updateBadges();
   const rvId2=id||(DB.reviews[DB.reviews.length-1]?.id)||'';
-  const savedRv=DB.reviews.find(r=>r.id===rvId2);if(savedRv)sbSyncRv(savedRv);
   if(id)trackAction('تعديل','مراجعة',id,'تعديل المراجعة '+id,'reviews');
   else trackAction('إضافة','مراجعة',rvId2,'مراجعة جديدة: '+rvId2,'reviews');
   toast('تم الحفظ ✅','ok');
@@ -1568,7 +1607,6 @@ function saveStm(id=''){
   else{const s={...data,id:nid('STM',DB.statements),createdAt:new Date().toISOString()};DB.statements.push(s);logAudit('إضافة','إفادة',s.id,'');}
   saveDB();closeModal();updateBadges();
   const stId2=id||(DB.statements[DB.statements.length-1]?.id)||'';
-  const savedStm=DB.statements.find(s=>s.id===stId2);if(savedStm)sbSyncStm(savedStm);
   if(id)trackAction('تعديل','إفادة',id,'تعديل الإفادة '+id,'statements');
   else trackAction('إضافة','إفادة',stId2,'إفادة جديدة: '+stId2,'statements');
   toast('تم الحفظ ✅','ok');
@@ -1610,7 +1648,6 @@ function saveFu(editId=''){
   else{const f={...data,id:nid('FUP',DB.followups),createdAt:new Date().toISOString()};DB.followups.push(f);logAudit('إضافة','متابعة',f.id,'');if(data.relatedType==='حدث'){const ev=DB.events.find(e=>e.id===data.relatedId);if(ev)addTL(ev,'تم إضافة متابعة جديدة');}}
   saveDB();closeModal();updateBadges();
   const fuId2=editId||(DB.followups[DB.followups.length-1]?.id)||'';
-  const savedFu=DB.followups.find(f=>f.id===fuId2);if(savedFu)sbSyncFu(savedFu);
   if(editId)trackAction('تعديل','متابعة',editId,'تعديل المتابعة '+editId,'followups');
   else trackAction('إضافة','متابعة',fuId2,'متابعة جديدة: '+fuId2,'followups');
   toast('تم الحفظ ✅','ok');
@@ -1653,7 +1690,6 @@ function saveTask(id=''){
   else{const t={...data,id:nid('TSK',DB.tasks),createdAt:new Date().toISOString()};DB.tasks.push(t);logAudit('إضافة','مهمة',t.id,'');}
   saveDB();closeModal();updateBadges();
   const tkId2=id||(DB.tasks[DB.tasks.length-1]?.id)||'';
-  const savedTk=DB.tasks.find(t=>t.id===tkId2);if(savedTk)sbSyncTk(savedTk);
   if(id)trackAction('تعديل','مهمة',id,'تعديل المهمة '+id,'tasks');
   else trackAction('إضافة','مهمة',tkId2,'مهمة جديدة: '+tkId2,'tasks');
   toast('تم الحفظ ✅','ok');
@@ -2014,21 +2050,7 @@ const IMP_SCHEMA={
   reviews:{label:'مراجعات',fields:{date:{label:'التاريخ',req:true,a:['التاريخ','تاريخ الطلب','date']},factory:{label:'المصنع',req:true,a:['المصنع','مصنع','factory']},subject:{label:'الموضوع',req:true,a:['موضوع المراجعة','الموضوع','subject']},responsible:{label:'المسؤول',a:['المسؤول','responsible']},priority:{label:'الأولوية',a:['الأولوية','priority']},deadline:{label:'الموعد',a:['الموعد النهائي','deadline']},status:{label:'الحالة',a:['الحالة','status']},notes:{label:'ملاحظات',a:['الملاحظات','notes']}}}
 };
 
-function autoMatch(col,type){
-  const c=String(col||'').trim().toLowerCase().replace(/[\s_-]+/g,' ');
-  const f=IMP_SCHEMA[type]?.fields||{};
-  for(const[k,fd]of Object.entries(f)){
-    for(const a of(fd.a||[])){
-      const al=a.toLowerCase().trim();
-      if(c===al||c.includes(al)||al.includes(c)||c.replace(/\s/g,'')===al.replace(/\s/g,''))return k;
-    }
-  }
-  // Fallback: match by first 3 chars
-  for(const[k,fd]of Object.entries(f)){
-    if(c.length>=3&&(fd.label||'').toLowerCase().includes(c.slice(0,3)))return k;
-  }
-  return'_skip';
-}
+function autoMatch(col,type){const c=String(col||'').trim().toLowerCase();const f=IMP_SCHEMA[type]?.fields||{};for(const[k,fd]of Object.entries(f)){for(const a of(fd.a||[])){if(c===a.toLowerCase()||c.includes(a.toLowerCase())||a.toLowerCase().includes(c))return k;}}return'_skip';}
 
 function renderImportCenter(){
   const el=document.getElementById('page-import-center');if(!el)return;
@@ -2116,7 +2138,7 @@ function iwReadFile(input){
 function iwProceedPreview(){
   // Apply column map
   IW.records=IW.rawRows.map((row,ri)=>{const rec={_ri:ri+2,_st:'ok',_errs:[]};IW.rawHeaders.forEach((h,i)=>{const fk=IW.colMap[h];if(fk&&fk!=='_skip')rec[fk]=String(row[i]===undefined||row[i]===null?'':row[i]).trim();});const flds=IMP_SCHEMA[IW.type]?.fields||{};for(const[k,f]of Object.entries(flds)){if(f.req&&!String(rec[k]||'').trim())rec._errs.push(`"${f.label}" مطلوب`);}if(rec._errs.length)rec._st='err';else{// Check dup
-    const arr=IW.type==='violations'?DB.violations:IW.type==='events'?DB.events:DB.reviews;const tf=IW.type==='events'?'eventType':'type';const isDup=arr.some(x=>(x.date||'')===(rec.date||'')&&(x.factory||'')===(rec.factory||'')&&(x[tf]||'')===(rec[tf]||''));if(isDup)rec._st='dup';}return rec;}).filter(r=>r._ri&&(r.description||r.type||r.eventType||r.subject||r.title||r.action));
+    const arr=IW.type==='violations'?DB.violations:IW.type==='events'?DB.events:DB.reviews;const tf=IW.type==='events'?'eventType':'type';const isDup=arr.some(x=>(x.date||'')===(rec.date||'')&&(x.factory||'')===(rec.factory||'')&&(x[tf]||'')===(rec[tf]||''));if(isDup)rec._st='dup';}return rec;}).filter(r=>Object.keys(r).length>4);
   IW.valid=IW.records.filter(r=>r._st==='ok');IW.errors=IW.records.filter(r=>r._st==='err');IW.dups=IW.records.filter(r=>r._st==='dup');IW.selected=new Set(IW.valid.map(r=>r._ri));
   renderIWStep(3);
 }
@@ -2128,7 +2150,7 @@ async function iwExecImport(){
   for(let i=0;i<total;i++){
     const rec=toImp[i];setP(Math.round(30+(i/total*60)),`حفظ السجلات... ${i+1}/${total}`);
     try{let nr;if(IW.type==='violations')nr={id:nid('VIO',DB.violations),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',type:rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:VIO_STATUSES.includes(rec.status)?rec.status:'جديدة',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',followUpResponsible:'',notes:rec.notes||'',createdAt:new Date().toISOString(),timeline:[],importBatchId:IW.batchId};
-    else if(IW.type==='events')nr={id:nid('EVT',DB.events),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',eventType:rec.eventType||rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:EV_STATUSES.includes(rec.status)?rec.status:'جديد',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',registeredBy:CUSER?.name||'',followUpResponsible:'',mainCategory:'',subCategory:'',followUpDate:'',dueDate:'',notes:rec.notes||'',closedDate:'',closedTime:'',escalation:0,timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:'استيراد جماعي',user:CUSER?.name||'النظام'}],images:[],linkedViolations:[],linkedStatements:[],createdAt:new Date().toISOString(),importBatchId:IW.batchId};
+    else if(IW.type==='events')nr={id:nid('EVT',DB.events),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',camera:'',eventType:rec.eventType||rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:EV_STATUSES.includes(rec.status)?rec.status:'جديد',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',registeredBy:CUSER?.name||'',followUpResponsible:'',mainCategory:'',subCategory:'',followUpDate:'',dueDate:'',notes:rec.notes||'',closedDate:'',closedTime:'',escalation:0,timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:'استيراد جماعي',user:CUSER?.name||'النظام'}],images:[],linkedViolations:[],linkedStatements:[],createdAt:new Date().toISOString(),importBatchId:IW.batchId};
     else nr={id:nid('REV',DB.reviews),date:rec.date||td(),factory:rec.factory||'',area:'',location:'',subject:rec.subject||'',reason:'',what:'',responsible:rec.responsible||'',priority:PRIORITIES.includes(rec.priority)?rec.priority:'عادية',deadline:rec.deadline||'',status:REV_STATUSES.includes(rec.status)?rec.status:'جديدة',result:'',notes:rec.notes||'',createdAt:new Date().toISOString()};
     if(IW.type==='violations')DB.violations.push(nr);else if(IW.type==='events')DB.events.push(nr);else DB.reviews.push(nr);ids.push(nr.id);success++;}catch(e){failed++;}
     if(i%20===0)await sleep(5);
@@ -2193,18 +2215,18 @@ function renderSettings(){
 function renderFactories(){
   const el=document.getElementById('page-factories');if(!el)return;
   el.innerHTML=`<div class="sh"><div class="sh-t">🏭 المصانع</div><button class="btn bp btn-sm" onclick="openFacForm()">➕ مصنع جديد</button></div>
-  <div class="tw"><table><thead><tr><th>الرقم</th><th>الاسم</th><th>المنطقة</th><th>الكاميرات</th><th>الأحداث</th><th>المخالفات</th><th>الحالة</th><th>إجراء</th></tr></thead>
+  <div class="tw"><table><thead><tr><th>الرقم</th><th>الاسم</th><th>المنطقة</th><th>الأحداث</th><th>المخالفات</th><th>الحالة</th><th>إجراء</th></tr></thead>
   <tbody>${DB.factories.map(f=>`<tr>
     <td style="color:var(--muted);font-size:11px">${f.id}</td>
     <td style="font-weight:700">${esc(f.name)}</td>
     <td>${esc(f.area||'—')}</td>
-    
+    <td></td>
     <td style="color:var(--blue2);font-weight:700">${DB.events.filter(e=>e.factory===f.name).length}</td>
     <td style="color:var(--amb2)">${DB.violations.filter(v=>v.factory===f.name).length}</td>
     <td>${badge(f.active!==false?'نشط':'معطل',f.active!==false?'bg-g':'bg-gr')}</td>
     <td class="tda">
       <button class="btn bg btn-xs" onclick="openFacForm('${f.id}')">✏️</button>
-      <button class="btn bd btn-xs" onclick="deleteFac('${f.id}')">🗑️</button>
+      <button class="btn bd btn-xs" onclick="if(confirm('حذف المصنع؟')){DB.factories=DB.factories.filter(x=>x.id!=='${f.id}');saveDB();renderFactories();}">🗑️</button>
     </td>
   </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد مصانع</td></tr>`}
   </tbody></table></div>`;
@@ -2221,13 +2243,56 @@ function openFacForm(id=''){
 function saveFac(id=''){
   const name=document.getElementById('ff-name')?.value?.trim();if(!name){toast('الاسم مطلوب','err');return;}
   const data={name,area:document.getElementById('ff-area').value,contact:document.getElementById('ff-contact').value,active:document.getElementById('ff-active').value==='1'};
-  if(id){const idx=DB.factories.findIndex(f=>f.id===id);if(idx>-1)DB.factories[idx]={...DB.factories[idx],...data};sbUpsert('factories',{...data,id});}
-  else{const fac={...data,id:'F'+Date.now()};DB.factories.push(fac);sbUpsert('factories',fac);}
-  DB._setupDone=true;saveDB();closeModal();renderFactories();toast('تم الحفظ ✅','ok');
+  if(id){const idx=DB.factories.findIndex(f=>f.id===id);if(idx>-1)DB.factories[idx]={...DB.factories[idx],...data};}
+  else DB.factories.push({...data,id:'F'+Date.now()});
+  saveDB();closeModal();renderFactories();toast('تم الحفظ ✅','ok');
 }
 
 // ══════════════════════════════════════════════════
-
+//  CAMERAS
+// ══════════════════════════════════════════════════
+function renderCameras(){
+  const el=document.getElementById('page-cameras');if(!el)return;
+  const facs=getFactories();
+  el.innerHTML=`<div class="sh"><div class="sh-t">📷 الكاميرات</div><button class="btn bp btn-sm" onclick="openCamForm()">➕ كاميرا جديدة</button></div>
+  <div class="fb"><select class="sft" id="cam-fac" onchange="renderCameras2()"><option value="">كل المصانع</option>${facs.map(f=>`<option>${f}</option>`).join('')}</select></div>
+  <div id="cam-list"></div>`;
+  renderCameras2();
+}
+function renderCameras2(){
+  const fac=document.getElementById('cam-fac')?.value||'';
+  const arr=DB.cameras.filter(c=>!fac||c.factory===fac);
+  const el=document.getElementById('cam-list');if(!el)return;
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>الكود</th><th>الاسم</th><th>المصنع</th><th>الموقع</th><th>الأحداث</th><th>المخالفات</th><th>الحالة</th><th>إجراء</th></tr></thead>
+  <tbody>${arr.map(c=>`<tr>
+    <td style="color:var(--cyan);font-weight:700">${c.id}</td>
+    <td style="font-weight:700">${esc(c.name)}</td>
+    <td>${esc(c.factory||'—')}</td>
+    <td>${esc(c.location||'—')}</td>
+    <td style="color:var(--blue2)">${DB.events.filter(e=>e.camera===c.name).length}</td>
+    <td style="color:var(--amb2)">${DB.violations.filter(v=>v.camera===c.name).length}</td>
+    <td>${badge(c.active!==false?'نشطة':'معطلة',c.active!==false?'bg-g':'bg-r')}</td>
+    <td class="tda">
+      <button class="btn bg btn-xs" onclick="openCamForm('${c.id}')">✏️</button>
+      <button class="btn bd btn-xs" onclick="if(confirm('حذف؟')){DB.cameras=DB.cameras.filter(x=>x.id!=='${c.id}');saveDB();renderCameras();}">🗑️</button>
+    </td>
+  </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد كاميرات</td></tr>`}
+  </tbody></table></div>`;
+}
+function openCamForm(id=''){
+  const c=id?DB.cameras.find(x=>x.id===id):{};const facs=getFactories();
+  openModal(id?'✏️ تعديل كاميرا':'📷 كاميرا جديدة',`
+  <div class="form-row"><div class="fg"><label class="fl">اسم الكاميرا *</label><input type="text" class="fc" id="cf-name" value="${esc(c?.name||'')}"></div><div class="fg"><label class="fl">المصنع *</label><select class="fc" id="cf-fac">${facs.map(f=>`<option ${c?.factory===f?'selected':''}>${f}</option>`).join('')}</select></div></div>
+  <div class="form-row"><div class="fg"><label class="fl">المنطقة</label><select class="fc" id="cf-area">${AREAS.map(a=>`<option ${c?.location===a?'selected':''}>${a}</option>`).join('')}</select></div><div class="fg"><label class="fl">الوصف</label><input type="text" class="fc" id="cf-desc" value="${esc(c?.description||'')}"></div></div>
+  <div class="fg"><label class="fl">الحالة</label><select class="fc" id="cf-active"><option value="1" ${c?.active!==false?'selected':''}>نشطة</option><option value="0" ${c?.active===false?'selected':''}>معطلة</option></select></div>`,[{label:'✅ حفظ',cls:'bp',fn:`saveCam('${id}')`}]);
+}
+function saveCam(id=''){
+  const name=document.getElementById('cf-name')?.value?.trim();if(!name){toast('الاسم مطلوب','err');return;}
+  const data={name,factory:document.getElementById('cf-fac').value,location:document.getElementById('cf-area').value,description:document.getElementById('cf-desc').value,active:document.getElementById('cf-active').value==='1'};
+  if(id){const idx=DB.cameras.findIndex(c=>c.id===id);if(idx>-1)DB.cameras[idx]={...DB.cameras[idx],...data};}
+  else DB.cameras.push({...data,id:'CAM-'+String(DB.cameras.length+1).padStart(3,'0')});
+  saveDB();closeModal();renderCameras();toast('تم الحفظ ✅','ok');
+}
 
 // ══════════════════════════════════════════════════
 //  USERS MANAGEMENT
@@ -2349,13 +2414,10 @@ function renderBackup(){
   <div class="card" style="background:rgba(6,184,212,.06);border-color:rgba(6,184,212,.3);margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
       <div>
-        <div style="font-size:13px;font-weight:800;color:var(--cyan)">☁️ التزامن مع Supabase</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:3px">رفع أو جلب البيانات من السحابة</div>
+        <div style="font-size:13px;font-weight:800;color:var(--cyan)">🔄 تحديث نسخة التطبيق</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">احفظ بياناتك ثم حمّل أحدث نسخة من المحادثة</div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn bc btn-sm" onclick="openSyncPanel()">☁️ لوحة التزامن</button>
-        <button class="btn bg btn-sm" onclick="openUpdateCenter()">🔄 مركز التحديث</button>
-      </div>
+      <button class="btn bc btn-sm" onclick="openUpdateCenter()">🔄 مركز التحديث</button>
     </div>
   </div>
   <div class="grid2">
@@ -2457,32 +2519,10 @@ function openUpdateCenter(){
     <div style="font-size:12px;font-weight:700;color:var(--grn2);margin-bottom:8px">⚡ الإجراءات السريعة</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn bs btn-sm" onclick="doBackup()">💾 تصدير نسخة احتياطية الآن</button>
-      <button class="btn bc btn-sm" onclick="forceUpdateNow()" style="font-weight:900">⚡ فرض التحديث الآن</button>
       <button class="btn bg btn-sm" onclick="closeModal();goTo('backup')">⚙️ صفحة النسخ الاحتياطي</button>
-      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل</button>
+      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل التطبيق</button>
     </div>
   </div>`);
-}
-
-// Force Update Now — clear cache and reload fresh version
-function forceUpdateNow(){
-  if(!confirm('سيتم مسح النسخة المخزنة في المتصفح وإعادة تحميل أحدث نسخة.\n\nتأكد أنك حمّلت الملف الجديد في نفس المجلد أولاً.'))return;
-  saveDB(); // Save data first
-  toast('جاري حذف الكاش وإعادة التحميل...','inf');
-  setTimeout(()=>{
-    // Clear service worker cache if exists
-    if('caches' in window){
-      caches.keys().then(names=>names.forEach(n=>caches.delete(n)));
-    }
-    // Force reload bypassing cache
-    window.location.reload(true);
-  },600);
-}
-
-// Add force update button to sidebar (below change password)
-function addForceUpdateToSidebar(){
-  const el=document.getElementById('force-update-shortcut');
-  if(el)return;
 }
 
 // Force reload while preserving data
@@ -2530,7 +2570,7 @@ function evData(){
   return DB.events.map(e=>({
     'رقم الحدث':e.id,'التاريخ':e.date,'الوقت':e.time||'',
     'المصنع':e.factory||'','المنطقة':e.area||'','الموقع':e.location||'',
-    'نوع الحدث':e.eventType||'',
+    'الكاميرا':e.camera||'','نوع الحدث':e.eventType||'',
     'درجة الخطورة':e.severity||'','الحالة':e.status||'',
     'الوصف':e.description||'','الإجراء المتخذ':e.actionTaken||'',
     'الجهة المعنية':e.concernedParty||'','المسجِّل':e.registeredBy||'',
@@ -2767,7 +2807,7 @@ function evData(){
   return DB.events.map(e=>({
     'رقم الحدث':e.id,'التاريخ':e.date,'الوقت':e.time||'',
     'المصنع':e.factory||'','المنطقة':e.area||'','الموقع':e.location||'',
-    'نوع الحدث':e.eventType||'',
+    'الكاميرا':e.camera||'','نوع الحدث':e.eventType||'',
     'درجة الخطورة':e.severity||'','الحالة':e.status||'',
     'الوصف':e.description||'','الإجراء المتخذ':e.actionTaken||'',
     'الجهة المعنية':e.concernedParty||'','المسجِّل':e.registeredBy||'',
@@ -2965,382 +3005,6 @@ function updateClock(){
 }
 
 // ══════════════════════════════════════════════════
-//  ████  SUPABASE INTEGRATION — Real-time Sync  ████
-// ══════════════════════════════════════════════════
-const SB_URL = 'https://vyacbrgqtarezbwdsjpz.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5YWNicmdxdGFyZXpid2RzanB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MDgxMjEsImV4cCI6MjEwNTM4NDEyMX0.M1CNLFSBALlTG0hui7Wvj57EZmQUdwLXqXulJx2sb98';
-
-let sb = null;
-let sbReady = false;
-window._sbChannel = null;
-
-// ── Status indicator ──
-// Check and display Supabase connection
-async function checkSupabaseConnection(){
-  if(!sbReady||!sb){setSyncStatus('offline');return false;}
-  try{
-    const{data,error}=await sb.from('events').select('id').limit(1);
-    if(error)throw error;
-    setSyncStatus('connected');
-    toast('✅ Supabase متصل وشغال!','ok');
-    return true;
-  }catch(e){
-    setSyncStatus('error');
-    toast('❌ خطأ في الاتصال: '+e.message,'err');
-    return false;
-  }
-}
-
-function setSyncStatus(st){
-  const el=document.getElementById('sync-status');if(!el)return;
-  const S={connected:{t:'☁️ متصل',c:'var(--grn2)',b:'rgba(22,163,74,.1)',bc:'rgba(22,163,74,.3)'},syncing:{t:'🔄 يتزامن...',c:'var(--amb2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'},offline:{t:'📴 غير متصل',c:'var(--red2)',b:'rgba(220,38,38,.1)',bc:'rgba(220,38,38,.3)'},error:{t:'⚠️ خطأ',c:'var(--amber2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'}};
-  const s=S[st]||S.offline;
-  el.textContent=s.t;el.style.color=s.c;el.style.background=s.b;el.style.borderColor=s.bc;
-}
-
-// ── Field maps: JS camelCase ↔ SQL snake_case ──
-const MAP_EV={id:'id',date:'date',time:'time',factory:'factory',area:'area',location:'location',eventType:'event_type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',registeredBy:'registered_by',followUpResponsible:'follow_up_responsible',mainCategory:'main_category',subCategory:'sub_category',followUpDate:'follow_up_date',dueDate:'due_date',closedDate:'closed_date',closedTime:'closed_time',notes:'notes',escalation:'escalation',timeline:'timeline',images:'images',importBatchId:'import_batch_id',createdAt:'created_at'};
-const MAP_VI={id:'id',date:'date',time:'time',eventId:'event_id',factory:'factory',area:'area',location:'location',type:'type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',followUpResponsible:'follow_up_responsible',notes:'notes',timeline:'timeline',createdAt:'created_at'};
-const MAP_RV={id:'id',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',createdAt:'created_at'};
-const MAP_STM={id:'id',date:'date',eventId:'event_id',violationId:'violation_id',party:'party',subject:'subject',text:'text',submitter:'submitter',submittedDate:'submitted_date',status:'status',notes:'notes',createdAt:'created_at'};
-const MAP_FU={id:'id',date:'date',relatedType:'related_type',relatedId:'related_id',responsible:'responsible',action:'action',done:'done',notDone:'not_done',nextDate:'next_date',status:'status',notes:'notes',createdAt:'created_at'};
-const MAP_TK={id:'id',date:'date',title:'title',description:'description',assignedTo:'assigned_to',priority:'priority',dueDate:'due_date',relatedId:'related_id',status:'status',notes:'notes',createdAt:'created_at'};
-
-// Convert JS object → SQL row
-function toRow(obj,map){
-  const row={};
-  for(const[jk,sk]of Object.entries(map)){
-    if(obj[jk]!==undefined){
-      let v=obj[jk];
-      if(v!==null&&(Array.isArray(v)||(typeof v==='object')))v=JSON.stringify(v);
-      row[sk]=v;
-    }
-  }
-  return row;
-}
-// Convert SQL row → JS object
-function fromRow(row,map){
-  const rev=Object.fromEntries(Object.entries(map).map(([k,v])=>[v,k]));
-  const obj={};
-  for(const[sk,jk]of Object.entries(rev)){
-    if(row[sk]!==undefined){
-      let v=row[sk];
-      if(typeof v==='string'&&(v.startsWith('[')||v.startsWith('{'))){try{v=JSON.parse(v);}catch(e){}}
-      obj[jk]=v;
-    }
-  }
-  return obj;
-}
-
-// ── Core Supabase helpers ──
-async function sbUpsert(table,row){
-  if(!sbReady||!sb)return false;
-  try{const{error}=await sb.from(table).upsert(row,{onConflict:'id'});if(error)throw error;return true;}
-  catch(e){console.warn(`sbUpsert ${table}:`,e.message);return false;}
-}
-async function sbDelete(table,id){
-  if(!sbReady||!sb)return false;
-  try{const{error}=await sb.from(table).delete().eq('id',id);if(error)throw error;return true;}
-  catch(e){console.warn(`sbDelete ${table}:`,e.message);return false;}
-}
-async function sbFetch(table,map){
-  if(!sbReady||!sb)return null;
-  try{
-    const{data,error}=await sb.from(table).select('*').order('created_at',{ascending:true});
-    if(error)throw error;
-    return map?data.map(r=>fromRow(r,map)):data;
-  }catch(e){console.warn(`sbFetch ${table}:`,e.message);return null;}
-}
-
-// ── Initialize Supabase ──
-async function initSupabase(){
-  setSyncStatus('syncing');
-  try{
-    await new Promise((res,rej)=>{
-      if(window.supabase){res();return;}
-      const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      s.onload=res;s.onerror=rej;
-      document.body.appendChild(s);
-    });
-    sb=window.supabase.createClient(SB_URL,SB_KEY);
-    sbReady=true;
-    console.log('✅ Supabase connected');
-    return true;
-  }catch(e){
-    console.error('Supabase init failed:',e);
-    setSyncStatus('offline');
-    return false;
-  }
-}
-
-// ── Load ALL data from Supabase ──
-async function loadFromSupabase(){
-  if(!sbReady)return false;
-  setSyncStatus('syncing');
-  try{
-    const[evs,vis,rvs,stms,fus,tks,usrs,facs]=await Promise.all([
-      sbFetch('events',MAP_EV),sbFetch('violations',MAP_VI),sbFetch('reviews',MAP_RV),
-      sbFetch('statements',MAP_STM),sbFetch('followups',MAP_FU),sbFetch('tasks',MAP_TK),
-      sbFetch('users',null),sbFetch('factories',null),]);
-
-    // Check if Supabase was ever initialized (has any data)
-    const sbHasData=(evs&&evs.length>0)||(vis&&vis.length>0)||(facs&&facs.length>0);
-
-    if(sbHasData){
-      // ✅ Supabase is source of truth — use it fully (includes deletions)
-      if(evs!==null)DB.events=evs;
-      if(vis!==null)DB.violations=vis;
-      if(rvs!==null)DB.reviews=rvs;
-      if(stms!==null)DB.statements=stms;
-      if(fus!==null)DB.followups=fus;
-      if(tks!==null)DB.tasks=tks;
-      if(usrs!==null&&usrs.length>0)DB.users=usrs;
-      if(facs!==null)DB.factories=facs;  // Full sync — deletions included// Full sync — deletions included
-    } else {
-      // Supabase is empty — keep local data (first time setup)
-      console.log('Supabase empty — keeping local data');
-    }
-
-    LS.set('ccr_pro_db',JSON.stringify(DB));
-    setSyncStatus('connected');
-    return true;
-  }catch(e){
-    console.error('loadFromSupabase:',e);
-    setSyncStatus('error');
-    return false;
-  }
-}
-
-// ── Sync individual records ──
-function sbSyncEv(ev,del=false){if(!sbReady)return;del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
-function sbSyncVi(vi,del=false){if(!sbReady)return;del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
-function sbSyncRv(rv,del=false){if(!sbReady)return;del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
-function sbSyncStm(s,del=false){if(!sbReady)return;del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
-function sbSyncFu(f,del=false){if(!sbReady)return;del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
-function sbSyncTk(t,del=false){if(!sbReady)return;del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
-
-// ── Full upload: push ALL local data to Supabase ──
-async function fullSyncToSupabase(){
-  if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
-  setSyncStatus('syncing');
-  toast('جاري رفع كل البيانات إلى السحابة...','inf');
-  try{
-    await Promise.allSettled([
-      ...DB.events.map(e=>sbUpsert('events',toRow(e,MAP_EV))),
-      ...DB.violations.map(v=>sbUpsert('violations',toRow(v,MAP_VI))),
-      ...DB.reviews.map(r=>sbUpsert('reviews',toRow(r,MAP_RV))),
-      ...DB.statements.map(s=>sbUpsert('statements',toRow(s,MAP_STM))),
-      ...DB.followups.map(f=>sbUpsert('followups',toRow(f,MAP_FU))),
-      ...DB.tasks.map(t=>sbUpsert('tasks',toRow(t,MAP_TK))),
-      ...DB.users.map(u=>sbUpsert('users',u)),
-      ...DB.factories.map(f=>sbUpsert('factories',f)),]);
-    setSyncStatus('connected');
-    toast(`✅ تم الرفع — ${DB.events.length} حدث | ${DB.violations.length} مخالفة | ${DB.reviews.length} مراجعة`,'ok');
-    logAudit('رفع كامل إلى السحابة','Supabase','—',`${DB.events.length+DB.violations.length+DB.reviews.length} سجل`);
-  }catch(e){
-    setSyncStatus('error');
-    toast('خطأ في الرفع: '+e.message,'err');
-  }
-}
-
-// ── Pull latest from Supabase ──
-async function pullFromSupabase(){
-  if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
-  toast('جاري جلب أحدث البيانات من السحابة...','inf');
-  const ok=await loadFromSupabase();
-  if(ok){
-    updateBadges();
-    const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks,followups:filterFus,statements:filterStmts};
-    if(R[curPage])R[curPage]();
-    toast('✅ تم تحديث البيانات من السحابة','ok');
-  }
-}
-
-// ── Real-time subscriptions ──
-function setupRealtime(){
-  if(!sbReady||!sb)return;
-  try{
-    window._sbChannel=sb.channel('ccr-live')
-      .on('postgres_changes',{event:'*',schema:'public',table:'events'},p=>handleRT('events',p,MAP_EV))
-      .on('postgres_changes',{event:'*',schema:'public',table:'violations'},p=>handleRT('violations',p,MAP_VI))
-      .on('postgres_changes',{event:'*',schema:'public',table:'reviews'},p=>handleRT('reviews',p,MAP_RV))
-      .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},p=>handleRT('tasks',p,MAP_TK))
-      .on('postgres_changes',{event:'*',schema:'public',table:'followups'},p=>handleRT('followups',p,MAP_FU))
-      .subscribe(status=>{
-        if(status==='SUBSCRIBED'){setSyncStatus('connected');console.log('🔄 Real-time active');}
-        else if(status==='CHANNEL_ERROR'){setSyncStatus('error');}
-      });
-  }catch(e){console.warn('Realtime setup:',e);}
-}
-
-function handleRT(table,payload,map){
-  const{eventType,new:nr,old:or}=payload;
-  const arrMap={events:DB.events,violations:DB.violations,reviews:DB.reviews,tasks:DB.tasks,followups:DB.followups};
-  const arr=arrMap[table];if(!arr)return;
-  if(eventType==='INSERT'||eventType==='UPDATE'){
-    const rec=fromRow(nr,map);
-    const idx=arr.findIndex(r=>r.id===rec.id);
-    if(idx>-1)arr[idx]=rec;else arr.push(rec);
-    toast(`🔄 ${eventType==='INSERT'?'سجل جديد':'تحديث'} في ${table==='events'?'الأحداث':table==='violations'?'المخالفات':table==='reviews'?'المراجعات':'المهام'} من جهاز آخر`,'inf');
-  }else if(eventType==='DELETE'){
-    const id=or?.id;if(id){const key=table;DB[key]=DB[key].filter(r=>r.id!==id);}
-  }
-  LS.set('ccr_pro_db',JSON.stringify(DB));
-  updateBadges();
-  const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks,followups:filterFus};
-  if(R[curPage])setTimeout(()=>{try{R[curPage]();}catch(e){}},100);
-}
-
-// ── Sync panel ──
-function openSyncPanel(){
-  openModal('☁️ لوحة التزامن — Supabase',`
-  <div style="text-align:center;margin-bottom:18px">
-    <div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border)">${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل'}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:6px">المشروع: vyacbrgqtarezbwdsjpz.supabase.co</div>
-  </div>
-  <div class="stats-grid" style="margin-bottom:16px">
-    ${[['📌',DB.events.length,'أحداث'],['⚠️',DB.violations.length,'مخالفات'],['🔍',DB.reviews.length,'مراجعات'],['📋',DB.tasks.length,'مهام']].map(([ic,n,l])=>`<div class="sc"><div class="sc-n" style="color:var(--blue2)">${ic} ${n}</div><div class="sc-l">${l}</div></div>`).join('')}
-  </div>
-  <div style="display:flex;flex-direction:column;gap:10px">
-    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center">
-      ⬆️ رفع بياناتي إلى السحابة
-      <span style="font-size:10px;opacity:.7;display:block;font-weight:400">تحديث السحابة ببياناتك الحالية</span>
-    </button>
-    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center">
-      ⬇️ جلب أحدث البيانات من السحابة
-      <span style="font-size:10px;opacity:.7;display:block;font-weight:400">تحديث جهازك بآخر تعديلات</span>
-    </button>
-    <button class="btn bg" onclick="initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase())" style="justify-content:center">
-      🔄 إعادة الاتصال
-    </button>
-    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">
-      🔌 اختبار الاتصال
-    </button>
-    <button class="btn bg" onclick="forceUpdateNow()" style="justify-content:center;color:var(--amber2);border-color:var(--amber)">
-      ⚡ فرض التحديث الآن
-    </button>
-  </div>
-  <div style="margin-top:14px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.7">
-    💡 <strong>التزامن التلقائي:</strong> أي تعديل على أي جهاز يظهر فوراً على باقي الأجهزة المتصلة<br>
-    📴 <strong>بدون إنترنت:</strong> البيانات تتحفظ محلياً وترتفع تلقائياً لما تتصل
-  </div>`);
-}
-
-// ══════════════════════════════════════════════════
-//  PWA — Service Worker + Install Prompt
-// ══════════════════════════════════════════════════
-window._pwaInstallPrompt = null;
-window._swRegistered = false;
-
-// ── Register Service Worker (inline as Blob) ──
-function registerServiceWorker(){
-  if(!('serviceWorker' in navigator))return;
-  const swCode=`
-const CACHE='ccr-v2.5';
-const STATIC=['./'];
-self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).then(()=>self.skipWaiting()));
-});
-self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
-});
-self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET')return;
-  e.respondWith(
-    caches.match(e.request).then(cached=>{
-      const net=fetch(e.request).then(res=>{
-        if(res&&res.status===200){const clone=res.clone();caches.open(CACHE).then(c=>c.put(e.request,clone));}
-        return res;
-      }).catch(()=>cached);
-      return cached||net;
-    })
-  );
-});
-`;
-  const blob=new Blob([swCode],{type:'application/javascript'});
-  const url=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url,{scope:'./'})
-    .then(reg=>{
-      window._swRegistered=true;
-      console.log('✅ Service Worker registered');
-    })
-    .catch(e=>console.log('SW reg failed:',e));
-}
-
-// ── Install Prompt ──
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();
-  window._pwaInstallPrompt=e;
-  showInstallBanner();
-});
-
-window.addEventListener('appinstalled',()=>{
-  document.getElementById('pwa-install-banner')?.remove();
-  toast('✅ تم تثبيت التطبيق على جهازك!','ok');
-  window._pwaInstallPrompt=null;
-});
-
-function showInstallBanner(){
-  if(document.getElementById('pwa-install-banner'))return;
-  const banner=document.createElement('div');
-  banner.id='pwa-install-banner';
-  banner.style.cssText='position:fixed;bottom:calc(var(--bnh) + 10px);left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#1e3a8a,#1e40af);color:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:9000;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 32px);animation:tIn .3s ease;direction:rtl;font-family:Cairo,Arial,sans-serif';
-  banner.innerHTML=`
-    <span style="font-size:24px">🏭</span>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:800">ثبّت التطبيق على جهازك</div>
-      <div style="font-size:11px;opacity:.8;margin-top:2px">يعمل بدون إنترنت وأسرع</div>
-    </div>
-    <button onclick="installPWA()" style="background:#fff;color:#1e3a8a;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;font-family:Cairo,Arial,sans-serif;white-space:nowrap">تثبيت ⬇️</button>
-    <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:16px;line-height:1">×</button>`;
-  document.body.appendChild(banner);
-}
-
-async function installPWA(){
-  if(!window._pwaInstallPrompt){
-    openModal('📱 تثبيت التطبيق',`
-    <div style="text-align:center;padding:10px">
-      <div style="font-size:48px;margin-bottom:14px">🏭</div>
-      <div style="font-size:15px;font-weight:800;margin-bottom:8px">تثبيت غرفة المراقبة المركزية</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.7">اتبع الخطوات حسب جهازك:</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">💻 كمبيوتر / لاب توب (Chrome/Edge)</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.7">اضغط أيقونة ⊕ في شريط العنوان أو ⋮ ← تثبيت التطبيق</div>
-      </div>
-      <div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">📱 Android (Chrome)</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.7">⋮ ← إضافة إلى الشاشة الرئيسية ← إضافة</div>
-      </div>
-      <div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">🍎 iPhone / iPad (Safari)</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.7">□↑ (Share) ← إضافة إلى الشاشة الرئيسية ← إضافة</div>
-      </div>
-    </div>`);
-    return;
-  }
-  window._pwaInstallPrompt.prompt();
-  const{outcome}=await window._pwaInstallPrompt.userChoice;
-  if(outcome==='accepted'){
-    toast('✅ جاري التثبيت...','ok');
-    window._pwaInstallPrompt=null;
-    document.getElementById('pwa-install-banner')?.remove();
-  }
-}
-
-// ── Add Install button to sidebar ──
-function addPWAInstallToSidebar(){
-  const btn=document.createElement('button');
-  btn.className='btn bg btn-sm';btn.style.cssText='width:100%;margin-bottom:6px;color:var(--blue2);border-color:var(--blue)';
-  btn.innerHTML='📱 تثبيت كتطبيق';
-  btn.onclick=installPWA;
-  const sidebarBottom=document.querySelector('#sidebar > div:last-child');
-  if(sidebarBottom)sidebarBottom.insertBefore(btn,sidebarBottom.firstChild);
-}
-
-// ══════════════════════════════════════════════════
 //  INITIALIZATION
 // ══════════════════════════════════════════════════
 window._chartReady=false;
@@ -3356,46 +3020,26 @@ function _loadChart(){
 
 function initApp(){
   loadTheme();updateClock();updateBadges();
+  // Restore last action on login
   try{restoreLastAction();}catch(e){}
+  // Restore last page
   const lp=LS.get('ccr_last_page')||'dashboard';
   goTo(lp);
+  // Clock tick
   setInterval(updateClock,30000);
+  // SLA check every 5 min
   setInterval(()=>{try{runSLA();}catch(e){}},5*60*1000);
   try{runSLA();}catch(e){}
+  // Chart.js async
   setTimeout(_loadChart,600);
+  // Save last page on nav
   document.querySelectorAll('.ni').forEach(n=>{
     n.addEventListener('click',()=>LS.set('ccr_last_page',curPage));
   });
+  // Desktop datetime bar
   const dtEl=document.getElementById('tb-dt');
   const updateDtVis=()=>{if(dtEl)dtEl.style.display=window.innerWidth>=1024?'flex':'none';};
   updateDtVis();window.addEventListener('resize',updateDtVis);
-
-  // ── PWA: Register Service Worker ──
-  setTimeout(()=>{
-    try{registerServiceWorker();}catch(e){}
-    try{addPWAInstallToSidebar();}catch(e){}
-  },1000);
-
-  // ── Supabase: connect → load → realtime ──
-  initSupabase().then(async ok=>{
-    if(!ok){setSyncStatus('offline');return;}
-    const loaded=await loadFromSupabase();
-    if(loaded){
-      updateBadges();
-      try{goTo(LS.get('ccr_last_page')||'dashboard');}catch(e){}
-      toast('✅ تم تحميل البيانات من السحابة','ok');
-    }
-    setupRealtime();
-  }).catch(()=>setSyncStatus('offline'));
-
-  window.addEventListener('online',()=>{
-    toast('🌐 عاد الاتصال — جاري التزامن...','inf');
-    initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase());
-  });
-  window.addEventListener('offline',()=>{
-    setSyncStatus('offline');
-    toast('📴 انقطع الإنترنت — البيانات تُحفظ محلياً','warn');
-  });
 }
 
 // ── ENTRY POINT ──
