@@ -384,6 +384,7 @@ body.light #loader{background:var(--bg)}
     <div class="ni ns" onclick="goTo('backup')"><span class="ic">💾</span> النسخ الاحتياطي</div>
     <div style="padding:14px;border-top:1px solid var(--border);margin-top:8px;display:flex;flex-direction:column;gap:8px">
       <button class="btn bg btn-sm" style="width:100%;color:var(--cyan);border-color:var(--cyan)" onclick="openUpdateCenter()">🔄 تحديث النسخة</button>
+      <button class="btn bc btn-sm" style="width:100%;font-weight:900" onclick="forceUpdateNow()">⚡ فرض التحديث الآن</button>
       <button class="btn bg btn-sm" style="width:100%" onclick="openChangePassword()">🔑 تغيير كلمة المرور</button>
       <button class="btn bg btn-sm" style="width:100%;color:var(--red2);border-color:var(--red)" onclick="doLogout()">🚪 تسجيل الخروج</button>
     </div>
@@ -2519,10 +2520,34 @@ function openUpdateCenter(){
     <div style="font-size:12px;font-weight:700;color:var(--grn2);margin-bottom:8px">⚡ الإجراءات السريعة</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn bs btn-sm" onclick="doBackup()">💾 تصدير نسخة احتياطية الآن</button>
-      <button class="btn bg btn-sm" onclick="closeModal();goTo('backup')">⚙️ صفحة النسخ الاحتياطي</button>
-      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل التطبيق</button>
+      <button class="btn bc btn-sm" style="font-weight:900" onclick="forceUpdateNow()">⚡ فرض التحديث الآن</button>
+      <button class="btn bg btn-sm" onclick="closeModal();goTo('backup')">⚙️ النسخ الاحتياطي</button>
+      <button class="btn bg btn-sm" onclick="forceReloadApp()">🔄 إعادة تحميل</button>
     </div>
   </div>`);
+}
+
+// ⚡ Force Update Now — clear cache and reload fresh
+function forceUpdateNow(){
+  if(!confirm('سيتم:\n1️⃣ حفظ بياناتك أولاً\n2️⃣ مسح النسخة المخزنة في المتصفح\n3️⃣ إعادة تحميل أحدث نسخة\n\nتأكد أنك رفعت الملف الجديد أولاً.'))return;
+  saveDB();
+  toast('جاري حذف الكاش وتحميل أحدث نسخة...','inf');
+  setTimeout(()=>{
+    // Clear all caches
+    if('caches' in window){
+      caches.keys().then(names=>{
+        names.forEach(n=>caches.delete(n));
+      });
+    }
+    // Unregister service workers
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(regs=>{
+        regs.forEach(r=>r.unregister());
+      });
+    }
+    // Force hard reload
+    setTimeout(()=>window.location.reload(true), 500);
+  },600);
 }
 
 // Force reload while preserving data
