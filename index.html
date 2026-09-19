@@ -401,6 +401,7 @@ body.light #loader{background:var(--bg)}
     </div>
     <div class="tb-r">
       <div id="tb-dt" style="font-size:11px;color:var(--muted);display:none;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:5px 10px;white-space:nowrap"></div>
+      <div id="sync-status" title="حالة التزامن مع السحابة" style="font-size:11px;padding:4px 9px;border-radius:6px;background:var(--card);border:1px solid var(--border);cursor:pointer;white-space:nowrap" onclick="openSyncPanel()">⏳ جاري الاتصال...</div>
       <button class="btn bg btn-sm no-print" onclick="window.print()" title="طباعة">🖨️</button>
       <button id="theme-btn" onclick="toggleTheme()" title="الوضع" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center">🌙</button>
     </div>
@@ -1274,11 +1275,13 @@ function saveEvent(id=''){
   }
   saveDB();closeModal();updateBadges();runSLA();
   const evId2=id||(DB.events[DB.events.length-1]?.id)||'';
+  const savedEv=DB.events.find(e=>e.id===evId2);
+  if(savedEv)sbSyncEv(savedEv);
   if(id){toast('تم حفظ التعديلات ✅','ok');trackAction('تعديل','حدث',id,'تعديل الحدث '+id,'events');}
   else{trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
 }
 
-function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);logAudit('حذف','حدث',id,'');saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
+function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);sbDelete('events',id);logAudit('حذف','حدث',id,'');saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
 
 function changeStatusModal(id,entity='ev'){
   const arr=entity==='ev'?DB.events:entity==='vi'?DB.violations:DB.reviews;
@@ -1497,6 +1500,7 @@ function saveVio(id=''){
   else{const v={...data,id:nid('VIO',DB.violations),createdAt:new Date().toISOString(),timeline:[]};DB.violations.push(v);logAudit('إضافة','مخالفة',v.id,'');}
   saveDB();closeModal();updateBadges();
   const viId2=id||(DB.violations[DB.violations.length-1]?.id)||'';
+  const savedVi=DB.violations.find(v=>v.id===viId2);if(savedVi)sbSyncVi(savedVi);
   if(id)trackAction('تعديل','مخالفة',id,'تعديل المخالفة '+id,'violations');
   else trackAction('إضافة','مخالفة',viId2,'مخالفة جديدة: '+viId2,'violations');
   toast('تم الحفظ ✅','ok');
@@ -1568,6 +1572,7 @@ function saveRev(id=''){
   else{const r={...data,id:nid('REV',DB.reviews),createdAt:new Date().toISOString()};DB.reviews.push(r);logAudit('إضافة','مراجعة',r.id,'');}
   saveDB();closeModal();updateBadges();
   const rvId2=id||(DB.reviews[DB.reviews.length-1]?.id)||'';
+  const savedRv=DB.reviews.find(r=>r.id===rvId2);if(savedRv)sbSyncRv(savedRv);
   if(id)trackAction('تعديل','مراجعة',id,'تعديل المراجعة '+id,'reviews');
   else trackAction('إضافة','مراجعة',rvId2,'مراجعة جديدة: '+rvId2,'reviews');
   toast('تم الحفظ ✅','ok');
@@ -1610,6 +1615,7 @@ function saveStm(id=''){
   else{const s={...data,id:nid('STM',DB.statements),createdAt:new Date().toISOString()};DB.statements.push(s);logAudit('إضافة','إفادة',s.id,'');}
   saveDB();closeModal();updateBadges();
   const stId2=id||(DB.statements[DB.statements.length-1]?.id)||'';
+  const savedStm=DB.statements.find(s=>s.id===stId2);if(savedStm)sbSyncStm(savedStm);
   if(id)trackAction('تعديل','إفادة',id,'تعديل الإفادة '+id,'statements');
   else trackAction('إضافة','إفادة',stId2,'إفادة جديدة: '+stId2,'statements');
   toast('تم الحفظ ✅','ok');
@@ -1651,6 +1657,7 @@ function saveFu(editId=''){
   else{const f={...data,id:nid('FUP',DB.followups),createdAt:new Date().toISOString()};DB.followups.push(f);logAudit('إضافة','متابعة',f.id,'');if(data.relatedType==='حدث'){const ev=DB.events.find(e=>e.id===data.relatedId);if(ev)addTL(ev,'تم إضافة متابعة جديدة');}}
   saveDB();closeModal();updateBadges();
   const fuId2=editId||(DB.followups[DB.followups.length-1]?.id)||'';
+  const savedFu=DB.followups.find(f=>f.id===fuId2);if(savedFu)sbSyncFu(savedFu);
   if(editId)trackAction('تعديل','متابعة',editId,'تعديل المتابعة '+editId,'followups');
   else trackAction('إضافة','متابعة',fuId2,'متابعة جديدة: '+fuId2,'followups');
   toast('تم الحفظ ✅','ok');
@@ -1693,6 +1700,7 @@ function saveTask(id=''){
   else{const t={...data,id:nid('TSK',DB.tasks),createdAt:new Date().toISOString()};DB.tasks.push(t);logAudit('إضافة','مهمة',t.id,'');}
   saveDB();closeModal();updateBadges();
   const tkId2=id||(DB.tasks[DB.tasks.length-1]?.id)||'';
+  const savedTk=DB.tasks.find(t=>t.id===tkId2);if(savedTk)sbSyncTk(savedTk);
   if(id)trackAction('تعديل','مهمة',id,'تعديل المهمة '+id,'tasks');
   else trackAction('إضافة','مهمة',tkId2,'مهمة جديدة: '+tkId2,'tasks');
   toast('تم الحفظ ✅','ok');
@@ -2417,10 +2425,13 @@ function renderBackup(){
   <div class="card" style="background:rgba(6,184,212,.06);border-color:rgba(6,184,212,.3);margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
       <div>
-        <div style="font-size:13px;font-weight:800;color:var(--cyan)">🔄 تحديث نسخة التطبيق</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:3px">احفظ بياناتك ثم حمّل أحدث نسخة من المحادثة</div>
+        <div style="font-size:13px;font-weight:800;color:var(--cyan)">☁️ التزامن مع Supabase</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">رفع أو جلب البيانات من السحابة</div>
       </div>
-      <button class="btn bc btn-sm" onclick="openUpdateCenter()">🔄 مركز التحديث</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bc btn-sm" onclick="openSyncPanel()">☁️ لوحة التزامن</button>
+        <button class="btn bg btn-sm" onclick="openUpdateCenter()">🔄 مركز التحديث</button>
+      </div>
     </div>
   </div>
   <div class="grid2">
@@ -3008,6 +3019,241 @@ function updateClock(){
 }
 
 // ══════════════════════════════════════════════════
+//  ████  SUPABASE INTEGRATION — Real-time Sync  ████
+// ══════════════════════════════════════════════════
+const SB_URL = 'https://vyacbrgqtarezbwdsjpz.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5YWNicmdxdGFyZXpid2RzanB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MDgxMjEsImV4cCI6MjEwNTM4NDEyMX0.M1CNLFSBALlTG0hui7Wvj57EZmQUdwLXqXulJx2sb98';
+
+let sb = null;
+let sbReady = false;
+window._sbChannel = null;
+
+// ── Status indicator ──
+function setSyncStatus(st){
+  const el=document.getElementById('sync-status');if(!el)return;
+  const S={connected:{t:'☁️ متصل',c:'var(--grn2)',b:'rgba(22,163,74,.1)',bc:'rgba(22,163,74,.3)'},syncing:{t:'🔄 يتزامن...',c:'var(--amb2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'},offline:{t:'📴 غير متصل',c:'var(--red2)',b:'rgba(220,38,38,.1)',bc:'rgba(220,38,38,.3)'},error:{t:'⚠️ خطأ',c:'var(--amber2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'}};
+  const s=S[st]||S.offline;
+  el.textContent=s.t;el.style.color=s.c;el.style.background=s.b;el.style.borderColor=s.bc;
+}
+
+// ── Field maps: JS camelCase ↔ SQL snake_case ──
+const MAP_EV={id:'id',date:'date',time:'time',factory:'factory',area:'area',location:'location',camera:'camera',eventType:'event_type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',registeredBy:'registered_by',followUpResponsible:'follow_up_responsible',mainCategory:'main_category',subCategory:'sub_category',followUpDate:'follow_up_date',dueDate:'due_date',closedDate:'closed_date',closedTime:'closed_time',notes:'notes',escalation:'escalation',timeline:'timeline',images:'images',importBatchId:'import_batch_id',createdAt:'created_at'};
+const MAP_VI={id:'id',date:'date',time:'time',eventId:'event_id',factory:'factory',area:'area',location:'location',type:'type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',followUpResponsible:'follow_up_responsible',notes:'notes',timeline:'timeline',createdAt:'created_at'};
+const MAP_RV={id:'id',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',createdAt:'created_at'};
+const MAP_STM={id:'id',date:'date',eventId:'event_id',violationId:'violation_id',party:'party',subject:'subject',text:'text',submitter:'submitter',submittedDate:'submitted_date',status:'status',notes:'notes',createdAt:'created_at'};
+const MAP_FU={id:'id',date:'date',relatedType:'related_type',relatedId:'related_id',responsible:'responsible',action:'action',done:'done',notDone:'not_done',nextDate:'next_date',status:'status',notes:'notes',createdAt:'created_at'};
+const MAP_TK={id:'id',date:'date',title:'title',description:'description',assignedTo:'assigned_to',priority:'priority',dueDate:'due_date',relatedId:'related_id',status:'status',notes:'notes',createdAt:'created_at'};
+
+// Convert JS object → SQL row
+function toRow(obj,map){
+  const row={};
+  for(const[jk,sk]of Object.entries(map)){
+    if(obj[jk]!==undefined){
+      let v=obj[jk];
+      if(v!==null&&(Array.isArray(v)||(typeof v==='object')))v=JSON.stringify(v);
+      row[sk]=v;
+    }
+  }
+  return row;
+}
+// Convert SQL row → JS object
+function fromRow(row,map){
+  const rev=Object.fromEntries(Object.entries(map).map(([k,v])=>[v,k]));
+  const obj={};
+  for(const[sk,jk]of Object.entries(rev)){
+    if(row[sk]!==undefined){
+      let v=row[sk];
+      if(typeof v==='string'&&(v.startsWith('[')||v.startsWith('{'))){try{v=JSON.parse(v);}catch(e){}}
+      obj[jk]=v;
+    }
+  }
+  return obj;
+}
+
+// ── Core Supabase helpers ──
+async function sbUpsert(table,row){
+  if(!sbReady||!sb)return false;
+  try{const{error}=await sb.from(table).upsert(row,{onConflict:'id'});if(error)throw error;return true;}
+  catch(e){console.warn(`sbUpsert ${table}:`,e.message);return false;}
+}
+async function sbDelete(table,id){
+  if(!sbReady||!sb)return false;
+  try{const{error}=await sb.from(table).delete().eq('id',id);if(error)throw error;return true;}
+  catch(e){console.warn(`sbDelete ${table}:`,e.message);return false;}
+}
+async function sbFetch(table,map){
+  if(!sbReady||!sb)return null;
+  try{
+    const{data,error}=await sb.from(table).select('*').order('created_at',{ascending:true});
+    if(error)throw error;
+    return map?data.map(r=>fromRow(r,map)):data;
+  }catch(e){console.warn(`sbFetch ${table}:`,e.message);return null;}
+}
+
+// ── Initialize Supabase ──
+async function initSupabase(){
+  setSyncStatus('syncing');
+  try{
+    await new Promise((res,rej)=>{
+      if(window.supabase){res();return;}
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      s.onload=res;s.onerror=rej;
+      document.body.appendChild(s);
+    });
+    sb=window.supabase.createClient(SB_URL,SB_KEY);
+    sbReady=true;
+    console.log('✅ Supabase connected');
+    return true;
+  }catch(e){
+    console.error('Supabase init failed:',e);
+    setSyncStatus('offline');
+    return false;
+  }
+}
+
+// ── Load ALL data from Supabase ──
+async function loadFromSupabase(){
+  if(!sbReady)return false;
+  setSyncStatus('syncing');
+  try{
+    const[evs,vis,rvs,stms,fus,tks,usrs,facs,cams]=await Promise.all([
+      sbFetch('events',MAP_EV),sbFetch('violations',MAP_VI),sbFetch('reviews',MAP_RV),
+      sbFetch('statements',MAP_STM),sbFetch('followups',MAP_FU),sbFetch('tasks',MAP_TK),
+      sbFetch('users',null),sbFetch('factories',null),sbFetch('cameras',null)
+    ]);
+    if(evs!==null)DB.events=evs;
+    if(vis!==null)DB.violations=vis;
+    if(rvs!==null)DB.reviews=rvs;
+    if(stms!==null)DB.statements=stms;
+    if(fus!==null)DB.followups=fus;
+    if(tks!==null)DB.tasks=tks;
+    if(usrs!==null&&usrs.length)DB.users=usrs;
+    if(facs!==null&&facs.length)DB.factories=facs;
+    if(cams!==null&&cams.length)DB.cameras=cams;
+    // Cache locally
+    LS.set('ccr_pro_db',JSON.stringify(DB));
+    setSyncStatus('connected');
+    return true;
+  }catch(e){
+    console.error('loadFromSupabase:',e);
+    setSyncStatus('error');
+    return false;
+  }
+}
+
+// ── Sync individual records ──
+function sbSyncEv(ev,del=false){if(!sbReady)return;del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
+function sbSyncVi(vi,del=false){if(!sbReady)return;del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
+function sbSyncRv(rv,del=false){if(!sbReady)return;del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
+function sbSyncStm(s,del=false){if(!sbReady)return;del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
+function sbSyncFu(f,del=false){if(!sbReady)return;del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
+function sbSyncTk(t,del=false){if(!sbReady)return;del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
+
+// ── Full upload: push ALL local data to Supabase ──
+async function fullSyncToSupabase(){
+  if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
+  setSyncStatus('syncing');
+  toast('جاري رفع كل البيانات إلى السحابة...','inf');
+  try{
+    await Promise.allSettled([
+      ...DB.events.map(e=>sbUpsert('events',toRow(e,MAP_EV))),
+      ...DB.violations.map(v=>sbUpsert('violations',toRow(v,MAP_VI))),
+      ...DB.reviews.map(r=>sbUpsert('reviews',toRow(r,MAP_RV))),
+      ...DB.statements.map(s=>sbUpsert('statements',toRow(s,MAP_STM))),
+      ...DB.followups.map(f=>sbUpsert('followups',toRow(f,MAP_FU))),
+      ...DB.tasks.map(t=>sbUpsert('tasks',toRow(t,MAP_TK))),
+      ...DB.users.map(u=>sbUpsert('users',u)),
+      ...DB.factories.map(f=>sbUpsert('factories',f)),
+      ...DB.cameras.map(c=>sbUpsert('cameras',c)),
+    ]);
+    setSyncStatus('connected');
+    toast(`✅ تم الرفع — ${DB.events.length} حدث | ${DB.violations.length} مخالفة | ${DB.reviews.length} مراجعة`,'ok');
+    logAudit('رفع كامل إلى السحابة','Supabase','—',`${DB.events.length+DB.violations.length+DB.reviews.length} سجل`);
+  }catch(e){
+    setSyncStatus('error');
+    toast('خطأ في الرفع: '+e.message,'err');
+  }
+}
+
+// ── Pull latest from Supabase ──
+async function pullFromSupabase(){
+  if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
+  toast('جاري جلب أحدث البيانات من السحابة...','inf');
+  const ok=await loadFromSupabase();
+  if(ok){
+    updateBadges();
+    const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks,followups:filterFus,statements:filterStmts};
+    if(R[curPage])R[curPage]();
+    toast('✅ تم تحديث البيانات من السحابة','ok');
+  }
+}
+
+// ── Real-time subscriptions ──
+function setupRealtime(){
+  if(!sbReady||!sb)return;
+  try{
+    window._sbChannel=sb.channel('ccr-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'events'},p=>handleRT('events',p,MAP_EV))
+      .on('postgres_changes',{event:'*',schema:'public',table:'violations'},p=>handleRT('violations',p,MAP_VI))
+      .on('postgres_changes',{event:'*',schema:'public',table:'reviews'},p=>handleRT('reviews',p,MAP_RV))
+      .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},p=>handleRT('tasks',p,MAP_TK))
+      .on('postgres_changes',{event:'*',schema:'public',table:'followups'},p=>handleRT('followups',p,MAP_FU))
+      .subscribe(status=>{
+        if(status==='SUBSCRIBED'){setSyncStatus('connected');console.log('🔄 Real-time active');}
+        else if(status==='CHANNEL_ERROR'){setSyncStatus('error');}
+      });
+  }catch(e){console.warn('Realtime setup:',e);}
+}
+
+function handleRT(table,payload,map){
+  const{eventType,new:nr,old:or}=payload;
+  const arrMap={events:DB.events,violations:DB.violations,reviews:DB.reviews,tasks:DB.tasks,followups:DB.followups};
+  const arr=arrMap[table];if(!arr)return;
+  if(eventType==='INSERT'||eventType==='UPDATE'){
+    const rec=fromRow(nr,map);
+    const idx=arr.findIndex(r=>r.id===rec.id);
+    if(idx>-1)arr[idx]=rec;else arr.push(rec);
+    toast(`🔄 ${eventType==='INSERT'?'سجل جديد':'تحديث'} في ${table==='events'?'الأحداث':table==='violations'?'المخالفات':table==='reviews'?'المراجعات':'المهام'} من جهاز آخر`,'inf');
+  }else if(eventType==='DELETE'){
+    const id=or?.id;if(id){const key=table;DB[key]=DB[key].filter(r=>r.id!==id);}
+  }
+  LS.set('ccr_pro_db',JSON.stringify(DB));
+  updateBadges();
+  const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks,followups:filterFus};
+  if(R[curPage])setTimeout(()=>{try{R[curPage]();}catch(e){}},100);
+}
+
+// ── Sync panel ──
+function openSyncPanel(){
+  openModal('☁️ لوحة التزامن — Supabase',`
+  <div style="text-align:center;margin-bottom:18px">
+    <div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border)">${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">المشروع: vyacbrgqtarezbwdsjpz.supabase.co</div>
+  </div>
+  <div class="stats-grid" style="margin-bottom:16px">
+    ${[['📌',DB.events.length,'أحداث'],['⚠️',DB.violations.length,'مخالفات'],['🔍',DB.reviews.length,'مراجعات'],['📋',DB.tasks.length,'مهام']].map(([ic,n,l])=>`<div class="sc"><div class="sc-n" style="color:var(--blue2)">${ic} ${n}</div><div class="sc-l">${l}</div></div>`).join('')}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center">
+      ⬆️ رفع بياناتي إلى السحابة
+      <span style="font-size:10px;opacity:.7;display:block;font-weight:400">تحديث السحابة ببياناتك الحالية</span>
+    </button>
+    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center">
+      ⬇️ جلب أحدث البيانات من السحابة
+      <span style="font-size:10px;opacity:.7;display:block;font-weight:400">تحديث جهازك بآخر تعديلات</span>
+    </button>
+    <button class="btn bg" onclick="initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase())" style="justify-content:center">
+      🔄 إعادة الاتصال
+    </button>
+  </div>
+  <div style="margin-top:14px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.7">
+    💡 <strong>التزامن التلقائي:</strong> أي تعديل على أي جهاز يظهر فوراً على باقي الأجهزة المتصلة<br>
+    📴 <strong>بدون إنترنت:</strong> البيانات تتحفظ محلياً وترتفع تلقائياً لما تتصل
+  </div>`);
+}
+
+// ══════════════════════════════════════════════════
 //  INITIALIZATION
 // ══════════════════════════════════════════════════
 window._chartReady=false;
@@ -3023,26 +3269,43 @@ function _loadChart(){
 
 function initApp(){
   loadTheme();updateClock();updateBadges();
-  // Restore last action on login
   try{restoreLastAction();}catch(e){}
-  // Restore last page
   const lp=LS.get('ccr_last_page')||'dashboard';
   goTo(lp);
-  // Clock tick
   setInterval(updateClock,30000);
-  // SLA check every 5 min
   setInterval(()=>{try{runSLA();}catch(e){}},5*60*1000);
   try{runSLA();}catch(e){}
-  // Chart.js async
   setTimeout(_loadChart,600);
-  // Save last page on nav
   document.querySelectorAll('.ni').forEach(n=>{
     n.addEventListener('click',()=>LS.set('ccr_last_page',curPage));
   });
-  // Desktop datetime bar
   const dtEl=document.getElementById('tb-dt');
   const updateDtVis=()=>{if(dtEl)dtEl.style.display=window.innerWidth>=1024?'flex':'none';};
   updateDtVis();window.addEventListener('resize',updateDtVis);
+
+  // ── Supabase: connect → load → realtime ──
+  initSupabase().then(async ok=>{
+    if(!ok){setSyncStatus('offline');return;}
+    // Load from cloud first
+    const loaded=await loadFromSupabase();
+    if(loaded){
+      updateBadges();
+      try{goTo(LS.get('ccr_last_page')||'dashboard');}catch(e){}
+      toast('✅ تم تحميل البيانات من السحابة','ok');
+    }
+    // Start real-time
+    setupRealtime();
+  }).catch(()=>setSyncStatus('offline'));
+
+  // Handle online/offline events
+  window.addEventListener('online',()=>{
+    toast('🌐 عاد الاتصال بالإنترنت — جاري التزامن...','inf');
+    initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase());
+  });
+  window.addEventListener('offline',()=>{
+    setSyncStatus('offline');
+    toast('📴 انقطع الإنترنت — البيانات تُحفظ محلياً','warn');
+  });
 }
 
 // ── ENTRY POINT ──
