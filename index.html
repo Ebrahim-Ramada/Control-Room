@@ -1126,6 +1126,290 @@ function miniEvtTable(evts){
 }
 
 // ══════════════════════════════════════════════════
+//  INLINE STATEMENT — إفادة مدمجة مع كل سجل
+// ══════════════════════════════════════════════════
+
+// Render statement section for any record
+function renderInlineStmt(record, recType){
+  const stm = record.statement || {};
+  const hist = stm.history || [];
+  return `
+  <div class="card" style="border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.05)">
+    <div class="chd">
+      <div class="ctitle" style="color:var(--purp2)">📝 الإفادة الخاصة بهذا ${recType==='ev'?'الحدث':recType==='vi'?'المخالفة':'المراجعة'}</div>
+      ${stm.text?`<span style="font-size:10px;color:var(--muted)">${stm.updatedAt?'آخر تعديل: '+fmtDT(stm.updatedAt):'تاريخ الإنشاء: '+fmtDT(stm.createdAt)}</span>`:''}
+    </div>
+    <div style="margin-bottom:10px">
+      <textarea id="stm-text-${record.id}" class="fc" rows="4" placeholder="اكتب الإفادة هنا..." style="border-color:rgba(124,58,237,.3)">${esc(stm.text||'')}</textarea>
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="fg"><label class="fl">الجهة / مقدم الإفادة</label><input type="text" class="fc" id="stm-party-${record.id}" value="${esc(stm.party||CUSER?.name||'')}" placeholder="اسم مقدم الإفادة"></div>
+      <div class="fg"><label class="fl">الحالة</label>
+        <select class="fc" id="stm-status-${record.id}">
+          ${['مطلوبة','قيد الانتظار','تم تقديمها','مكتملة','مغلقة'].map(s=>`<option ${(stm.status||'مطلوبة')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn bpu btn-sm" onclick="saveInlineStmt('${record.id}','${recType}')">💾 حفظ الإفادة</button>
+      ${hist.length?`<button class="btn bg btn-sm" onclick="showStmHistory('${record.id}','${recType}')">🕐 السجل (${hist.length})</button>`:''}
+      ${stm.createdBy?`<span style="font-size:10px;color:var(--muted)">أنشأها: ${esc(stm.createdBy)}</span>`:''}
+    </div>
+    ${!stm.text?`<div style="font-size:11px;color:var(--muted);margin-top:8px;padding:8px;background:var(--bg2);border-radius:7px">💡 لم يتم إدخال إفادة بعد — يمكنك كتابتها الآن أو تركها لاحقاً</div>`:''}
+  </div>`;
+}
+
+// Save inline statement to the parent record
+function saveInlineStmt(recordId, recType){
+  const text = document.getElementById('stm-text-'+recordId)?.value?.trim();
+  const party = document.getElementById('stm-party-'+recordId)?.value?.trim();
+  const status = document.getElementById('stm-status-'+recordId)?.value||'مطلوبة';
+
+  const arr = recType==='ev'?DB.events:recType==='vi'?DB.violations:DB.reviews;
+  const idx = arr.findIndex(r=>r.id===recordId);
+  if(idx<0){toast('السجل غير موجود','err');return;}
+
+  const rec = arr[idx];
+  const oldText = rec.statement?.text||'';
+  const now = new Date().toISOString();
+
+  // Keep history
+  const history = rec.statement?.history||[];
+  if(oldText && oldText!==text){
+    history.push({
+      text:oldText, party:rec.statement?.party||'',
+      status:rec.statement?.status||'',
+      savedBy:rec.statement?.updatedBy||rec.statement?.createdBy||'',
+      savedAt:rec.statement?.updatedAt||rec.statement?.createdAt||now
+    });
+  }
+
+  rec.statement = {
+    text, party, status, history,
+    createdBy: rec.statement?.createdBy||CUSER?.name||'',
+    createdAt: rec.statement?.createdAt||now,
+    updatedBy: CUSER?.name||'',
+    updatedAt: now
+  };
+
+  // Also sync to Supabase
+  if(recType==='ev') sbSyncEv(rec);
+  else if(recType==='vi') sbSyncVi(rec);
+  else sbSyncRv(rec);
+
+  saveDB();
+  logAudit(text?'تعديل إفادة':'إضافة إفادة',recType==='ev'?'حدث':recType==='vi'?'مخالفة':'مراجعة',recordId,`إفادة: ${text?.slice(0,50)||'—'}`,oldText,text);
+  toast('✅ تم حفظ الإفادة','ok');
+
+  // Re-render the statement section in the modal
+  const stmEl = document.querySelector('.stm-section-'+recordId);
+  if(stmEl) stmEl.innerHTML = renderInlineStmt(rec, recType);
+}
+
+// Show statement history
+function showStmHistory(recordId, recType){
+  const arr = recType==='ev'?DB.events:recType==='vi'?DB.violations:DB.reviews;
+  const rec = arr.find(r=>r.id===recordId);
+  if(!rec?.statement?.history?.length){toast('لا يوجد سجل سابق','inf');return;}
+  const hist = rec.statement.history;
+  openModal('🕐 سجل تعديلات الإفادة',`
+  <div class="tl">
+    ${[...hist].reverse().map(h=>`<div class="tl-it">
+      <div class="tl-dot p"></div>
+      <div class="tl-t">${fmtDT(h.savedAt)} — ${esc(h.savedBy||'—')}</div>
+      <div class="tl-txt" style="background:var(--bg2);padding:8px;border-radius:7px;margin-top:4px">${esc(h.text||'—')}</div>
+    </div>`).join('')}
+    <div class="tl-it">
+      <div class="tl-dot g"></div>
+      <div class="tl-t">الإفادة الحالية — ${fmtDT(rec.statement.updatedAt||rec.statement.createdAt)}</div>
+      <div class="tl-txt" style="background:rgba(124,58,237,.1);padding:8px;border-radius:7px;border:1px solid rgba(124,58,237,.3);margin-top:4px">${esc(rec.statement.text||'—')}</div>
+    </div>
+  </div>`);
+}
+
+// ══════════════════════════════════════════════════
+//  VIOLATION DETAIL VIEW
+// ══════════════════════════════════════════════════
+function showVioDetail(id){
+  const v=DB.violations.find(x=>x.id===id);if(!v)return;
+  const ST_VI={جديدة:'bg-b',مفتوحة:'bg-c','تحت المتابعة':'bg-a','تم الإجراء':'bg-g',مغلقة:'bg-gr'};
+  openModal(`⚠️ تفاصيل المخالفة ${id}`,`
+  <div class="dg">
+    <div class="di"><div class="dl">رقم المخالفة</div><div class="dv" style="color:var(--amber2);font-weight:800">${v.id}</div></div>
+    <div class="di"><div class="dl">التاريخ والوقت</div><div class="dv">${fmtD(v.date)} ${v.time||''}</div></div>
+    <div class="di"><div class="dl">المصنع</div><div class="dv">${esc(v.factory||'—')}</div></div>
+    <div class="di"><div class="dl">المنطقة</div><div class="dv">${esc(v.area||'—')}</div></div>
+    <div class="di"><div class="dl">نوع المخالفة</div><div class="dv">${esc(v.type||'—')}</div></div>
+    <div class="di"><div class="dl">الخطورة</div><div class="dv">${sevB(v.severity)}</div></div>
+    <div class="di"><div class="dl">الحالة</div><div class="dv">${stB(v.status,ST_VI)}</div></div>
+    ${v.eventId?`<div class="di"><div class="dl">الحدث المرتبط</div><div class="dv" style="color:var(--blue2);cursor:pointer" onclick="closeModal();setTimeout(()=>showEventDetail('${v.eventId}'),300)">${v.eventId}</div></div>`:''}
+  </div>
+  <div class="card"><div class="ctitle" style="margin-bottom:8px">📝 وصف المخالفة</div><p style="font-size:13px;line-height:1.7;color:var(--dim)">${esc(v.description||'—')}</p></div>
+  ${v.actionTaken?`<div class="card"><div class="ctitle" style="margin-bottom:8px">✅ الإجراء المتخذ</div><p style="font-size:13px;line-height:1.7;color:var(--dim)">${esc(v.actionTaken)}</p></div>`:''}
+  <div class="stm-section-${v.id}">${renderInlineStmt(v,'vi')}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <button class="btn bg btn-sm" onclick="closeModal();openVioForm('${v.id}')">✏️ تعديل</button>
+    <button class="btn bg btn-sm" onclick="closeModal();changeStatusModal('${v.id}','vi')">🔄 حالة</button>
+  </div>`);
+}
+
+// ══════════════════════════════════════════════════
+//  REVIEW DETAIL VIEW
+// ══════════════════════════════════════════════════
+function showRevDetail(id){
+  const r=DB.reviews.find(x=>x.id===id);if(!r)return;
+  const ST_R={جديدة:'bg-b','قيد التنفيذ':'bg-c','تحتاج متابعة':'bg-a',مكتملة:'bg-g',متأخرة:'bg-r',مغلقة:'bg-gr'};
+  const PRICOL={منخفضة:'bg-gr',عادية:'bg-b',عالية:'bg-a',عاجلة:'bg-r'};
+  openModal(`🔍 تفاصيل المراجعة ${id}`,`
+  <div class="dg">
+    <div class="di"><div class="dl">رقم المراجعة</div><div class="dv" style="color:var(--purp2);font-weight:800">${r.id}</div></div>
+    <div class="di"><div class="dl">التاريخ</div><div class="dv">${fmtD(r.date)}</div></div>
+    <div class="di"><div class="dl">المصنع</div><div class="dv">${esc(r.factory||'—')}</div></div>
+    <div class="di"><div class="dl">الموضوع</div><div class="dv">${esc(r.subject||'—')}</div></div>
+    <div class="di"><div class="dl">الأولوية</div><div class="dv">${badge(r.priority||'—',PRICOL[r.priority]||'bg-gr')}</div></div>
+    <div class="di"><div class="dl">الحالة</div><div class="dv">${stB(r.status,ST_R)}</div></div>
+    <div class="di"><div class="dl">الموعد النهائي</div><div class="dv ${slaStatus(r.deadline).cls}">${slaStatus(r.deadline).label}</div></div>
+    <div class="di"><div class="dl">المسؤول</div><div class="dv">${esc(r.responsible||'—')}</div></div>
+  </div>
+  ${r.reason?`<div class="card"><div class="ctitle" style="margin-bottom:8px">📌 سبب المراجعة</div><p style="font-size:13px;color:var(--dim)">${esc(r.reason)}</p></div>`:''}
+  ${r.what?`<div class="card"><div class="ctitle" style="margin-bottom:8px">🔍 المطلوب مراجعته</div><p style="font-size:13px;color:var(--dim)">${esc(r.what)}</p></div>`:''}
+  ${r.result?`<div class="card"><div class="ctitle" style="margin-bottom:8px">✅ النتيجة</div><p style="font-size:13px;color:var(--dim)">${esc(r.result)}</p></div>`:''}
+  <div class="stm-section-${r.id}">${renderInlineStmt(r,'rv')}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <button class="btn bg btn-sm" onclick="closeModal();openRevForm('${r.id}')">✏️ تعديل</button>
+    <button class="btn bg btn-sm" onclick="closeModal();changeStatusModal('${r.id}','rv')">🔄 حالة</button>
+  </div>`);
+}
+
+// ══════════════════════════════════════════════════
+//  🔐 DELETE PROTECTION SYSTEM — نظام حماية الحذف
+// ══════════════════════════════════════════════════
+
+// Hash password using SHA-256
+async function hashPw(pw){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Central delete gateway — MUST pass through this for all deletes
+function requireDeletePassword(onConfirm, description='', entity='', recordId=''){
+  // Check if delete password is set
+  const hash=DB.settings?.deletePasswordHash;
+  if(!hash){
+    if(CUSER?.role==='admin'){
+      openModal('🔐 كلمة مرور الحذف غير مُعيَّنة',`
+        <div style="text-align:center;padding:16px">
+          <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+          <div style="font-size:14px;font-weight:800;color:var(--amber2);margin-bottom:8px">لم يتم إعداد كلمة مرور الحذف بعد</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">يجب إعداد كلمة مرور الحذف أولاً قبل حذف أي بيانات</div>
+          <button class="btn ba" onclick="closeModal();goTo('settings-security')">⚙️ اذهب لإعداد كلمة المرور</button>
+        </div>`);
+    } else {
+      toast('❌ كلمة مرور الحذف غير مُعيَّنة — تواصل مع المدير','err');
+    }
+    logAudit('محاولة حذف بدون كلمة مرور',entity,recordId,`محاولة حذف: ${description}`);
+    return;
+  }
+
+  openModal('🔐 تأكيد الحذف',`
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:40px;margin-bottom:10px">🗑️</div>
+      <div style="font-size:14px;font-weight:800;color:var(--red2);margin-bottom:6px">تأكيد عملية الحذف</div>
+      <div style="font-size:12px;color:var(--muted);padding:10px;background:rgba(220,38,38,.08);border-radius:9px;border:1px solid rgba(220,38,38,.2)">
+        ${esc(description||'هذه العملية لا يمكن التراجع عنها')}
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl" style="color:var(--red2)">🔐 أدخل كلمة مرور الحذف للتأكيد</label>
+      <input type="password" class="fc" id="del-pw-input" placeholder="كلمة مرور الحذف..." autocomplete="off"
+        style="border-color:var(--red);font-size:16px;letter-spacing:4px"
+        onkeydown="if(event.key==='Enter')confirmDelete()">
+    </div>
+    <div id="del-pw-err" style="display:none;color:var(--red2);font-size:12px;padding:8px;background:rgba(220,38,38,.1);border-radius:7px;margin-top:4px;text-align:center">❌ كلمة مرور الحذف غير صحيحة</div>
+    <div id="del-pw-ok" style="display:none;color:var(--grn2);font-size:12px;padding:8px;background:rgba(22,163,74,.1);border-radius:7px;margin-top:4px;text-align:center">✅ جاري تنفيذ الحذف...</div>`,
+    [{label:'🗑️ تأكيد الحذف',cls:'bd',fn:'confirmDelete()'}]);
+
+  // Store the callback and meta for use in confirmDelete
+  window._delCallback = onConfirm;
+  window._delEntity = entity;
+  window._delRecordId = recordId;
+  window._delDesc = description;
+
+  setTimeout(()=>document.getElementById('del-pw-input')?.focus(),300);
+}
+
+// Execute delete after password verification
+async function confirmDelete(){
+  const input=document.getElementById('del-pw-input')?.value;
+  if(!input){
+    document.getElementById('del-pw-err').textContent='❌ الرجاء إدخال كلمة المرور';
+    document.getElementById('del-pw-err').style.display='block';
+    return;
+  }
+  const errEl=document.getElementById('del-pw-err');
+  const okEl=document.getElementById('del-pw-ok');
+  try{
+    const h=await hashPw(input);
+    if(h!==DB.settings?.deletePasswordHash){
+      errEl.style.display='block';errEl.textContent='❌ كلمة مرور الحذف غير صحيحة';
+      if(okEl)okEl.style.display='none';
+      document.getElementById('del-pw-input').value='';
+      document.getElementById('del-pw-input').focus();
+      logAudit('فشل الحذف — كلمة مرور خاطئة',window._delEntity||'—',window._delRecordId||'—',window._delDesc||'—');
+      return;
+    }
+    // Password correct — execute delete
+    errEl.style.display='none';
+    okEl.style.display='block';
+    logAudit('حذف ناجح',window._delEntity||'—',window._delRecordId||'—',window._delDesc||'—');
+    setTimeout(()=>{
+      closeModal();
+      if(window._delCallback) window._delCallback();
+      window._delCallback=null;
+    },400);
+  }catch(e){
+    errEl.style.display='block';errEl.textContent='خطأ في التحقق: '+e.message;
+  }
+}
+
+// Admin: Set or change delete password
+async function saveDeletePassword(){
+  if(CUSER?.role!=='admin'){toast('هذه الوظيفة للمدير فقط','err');return;}
+  const np=document.getElementById('del-new-pw')?.value?.trim();
+  const cp=document.getElementById('del-confirm-pw')?.value?.trim();
+  const errEl=document.getElementById('del-set-err');
+  if(!np||np.length<4){errEl.textContent='❌ كلمة المرور يجب أن تكون 4 أحرف على الأقل';errEl.style.display='block';return;}
+  if(np!==cp){errEl.textContent='❌ كلمتا المرور غير متطابقتين';errEl.style.display='block';return;}
+  const h=await hashPw(np);
+  if(!DB.settings)DB.settings={};
+  DB.settings.deletePasswordHash=h;
+  saveDB();
+  logAudit('تغيير كلمة مرور الحذف','إعدادات','—','تم تغيير كلمة مرور الحذف');
+  closeModal();
+  toast('✅ تم حفظ كلمة مرور الحذف','ok');
+}
+
+function openSetDeletePassword(){
+  if(CUSER?.role!=='admin'){toast('هذه الوظيفة للمدير فقط','err');return;}
+  const hasExisting=!!DB.settings?.deletePasswordHash;
+  openModal('🔐 '+(hasExisting?'تغيير':'إعداد')+' كلمة مرور الحذف',`
+    <div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:12px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--red2);font-weight:700;margin-bottom:6px">⚠️ مهم جداً</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">
+        كلمة المرور هذه مطلوبة لتأكيد <strong>أي عملية حذف</strong> في التطبيق.<br>
+        تُخزَّن بصيغة مشفرة (Hash) ولا تظهر كنص واضح في أي مكان.
+      </div>
+    </div>
+    ${hasExisting?`<div style="padding:8px 12px;background:rgba(22,163,74,.1);border-radius:8px;border:1px solid rgba(22,163,74,.3);font-size:12px;color:var(--grn2);margin-bottom:14px">✅ كلمة مرور الحذف مُعيَّنة حالياً — يمكنك تغييرها أدناه</div>`:''}
+    <div class="fg"><label class="fl">كلمة المرور الجديدة *</label>
+      <input type="password" class="fc" id="del-new-pw" placeholder="أدخل كلمة المرور (4 أحرف على الأقل)" autocomplete="new-password"></div>
+    <div class="fg"><label class="fl">تأكيد كلمة المرور *</label>
+      <input type="password" class="fc" id="del-confirm-pw" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password"></div>
+    <div id="del-set-err" style="display:none;color:var(--red2);font-size:12px;padding:8px;background:rgba(220,38,38,.1);border-radius:7px;margin-top:4px"></div>`,
+    [{label:'💾 حفظ كلمة المرور',cls:'bd',fn:'saveDeletePassword()'}]);
+}
+
+// ══════════════════════════════════════════════════
 //  EVENTS MODULE
 // ══════════════════════════════════════════════════
 function getEvTypes(){return(DB.settings.eventTypes||[]).filter(t=>t.active!==false).map(t=>t.name||t);}
@@ -1342,6 +1626,7 @@ function showEventDetail(id){
       <div style="font-size:28px;font-weight:900;color:var(--cyan)">${linkedF.length}</div>
     </div>
   </div>
+  <div class="stm-section-${ev.id}">${renderInlineStmt(ev,'ev')}</div>
   <div class="card"><div class="ctitle" style="margin-bottom:12px">🕐 السجل الزمني</div>${renderTL(ev.timeline||[])}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn ba btn-sm" onclick="closeModal();openVioForm(null,'${id}')">➕ مخالفة</button>
@@ -1449,6 +1734,7 @@ function filterViols(){
     <td>${sevB(v.severity)}</td>
     <td>${stB(v.status,ST_VI)}</td>
     <td class="tda">
+      <button class="btn bg btn-xs" onclick="showVioDetail('${v.id}')">👁️</button>
       <button class="btn bg btn-xs" onclick="openVioForm('${v.id}')">✏️</button>
       <button class="btn bg btn-xs" onclick="changeStatusModal('${v.id}','vi')">🔄</button>
       <button class="btn bd btn-xs" onclick="deleteVio('${v.id}')">🗑️</button>
@@ -1540,6 +1826,7 @@ function filterRevs(){
     <td><span class="${sl.cls}" style="font-size:11px">${sl.label}</span></td>
     <td>${stB(r.status,ST_R)}</td>
     <td class="tda">
+      <button class="btn bg btn-xs" onclick="showRevDetail('${r.id}')">👁️</button>
       <button class="btn bg btn-xs" onclick="openRevForm('${r.id}')">✏️</button>
       <button class="btn bg btn-xs" onclick="changeStatusModal('${r.id}','rv')">🔄</button>
       <button class="btn bd btn-xs" onclick="DB.reviews=DB.reviews.filter(x=>x.id!=='${r.id}');saveDB();filterRevs();updateBadges()">🗑️</button>
@@ -2180,7 +2467,7 @@ function renderAudit(){
   const arr=[...DB.auditLog].filter(a=>!q||`${a.action} ${a.entity} ${a.entityId} ${a.user} ${a.desc}`.toLowerCase().includes(q));
   const ENT_COL={حدث:'bg-b',مخالفة:'bg-a',مراجعة:'bg-p',إفادة:'bg-c',متابعة:'bg-g',مهمة:'bg-t',نظام:'bg-gr'};
   el.innerHTML=`<div class="sh"><div class="sh-t">📋 سجل التدقيق (${DB.auditLog.length})</div>
-    <button class="btn bd btn-sm" onclick="if(confirm('مسح سجل التدقيق؟')){DB.auditLog=[];saveDB();renderAudit();}">🗑️ مسح</button>
+    <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.auditLog=[];saveDB();renderAudit();},'مسح سجل التدقيق','سجل التدقيق','ALL')">🗑️ مسح</button>
   </div>
   ${exportBar('audData','سجل التدقيق','aud-tbl')}
   <div class="fb"><input class="si" id="aud-q" placeholder="🔍 بحث في السجل..." oninput="renderAudit()"></div>
@@ -2203,7 +2490,22 @@ function renderAudit(){
 // ══════════════════════════════════════════════════
 function renderSettings(){
   const el=document.getElementById('page-settings');if(!el)return;
+  const hasDelPw=!!DB.settings?.deletePasswordHash;
   el.innerHTML=`<div class="sh"><div class="sh-t">⚙️ الإعدادات</div></div>
+  <!-- 🔐 DELETE PROTECTION SECTION -->
+  <div class="card" style="border-color:rgba(220,38,38,.3);background:rgba(220,38,38,.04);margin-bottom:16px">
+    <div class="chd">
+      <div class="ctitle" style="color:var(--red2)">🔐 حماية الحذف</div>
+      <span class="badge ${hasDelPw?'bg-g':'bg-r'}">${hasDelPw?'✅ مفعّلة':'❌ غير مُعيَّنة'}</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+      ${hasDelPw
+        ?'كلمة مرور الحذف مُعيَّنة — كل عمليات الحذف محمية ولا تتم إلا بعد إدخالها.'
+        :'⚠️ لم يتم إعداد كلمة مرور الحذف بعد — جميع عمليات الحذف موقوفة حتى يتم إعدادها.'}
+    </div>
+    ${CUSER?.role==='admin'?`<button class="btn bd btn-sm" onclick="openSetDeletePassword()">🔐 ${hasDelPw?'تغيير':'إعداد'} كلمة مرور الحذف</button>`
+    :'<div style="font-size:12px;color:var(--muted)">هذا الإعداد متاح للمدير فقط</div>'}
+  </div>
   <div class="grid3">
     ${[{ic:'🏭',t:'إدارة المصانع',s:`${DB.factories.length} مصنع`,p:'factories'},{ic:'👥',t:'إدارة المستخدمين',s:`${DB.users.length} مستخدم`,p:'users-mgmt'},{ic:'🏷️',t:'أنواع البيانات',s:'أحداث ومخالفات',p:'types-mgmt'},{ic:'⏱️',t:'إعدادات SLA',s:`${(DB.settings.slaRules||[]).length} قاعدة`,p:'sla-mgmt'},{ic:'💾',t:'النسخ الاحتياطي',s:'استيراد وتصدير',p:'backup'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="goTo('${c.p}')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
   </div>
@@ -2438,9 +2740,9 @@ function renderBackup(){
   <div class="card" style="background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.3)">
     <div class="ctitle" style="color:var(--red2);margin-bottom:10px">🗑️ منطقة الخطر</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn bd btn-sm" onclick="if(confirm('حذف جميع الأحداث؟')){DB.events=[];saveDB();toast('تم ✅','ok');}">🗑️ حذف كل الأحداث</button>
-      <button class="btn bd btn-sm" onclick="if(confirm('حذف جميع المخالفات؟')){DB.violations=[];saveDB();toast('تم ✅','ok');}">🗑️ حذف كل المخالفات</button>
-      <button class="btn bd btn-sm" onclick="if(confirm('إعادة ضبط قاعدة البيانات بالكامل؟')){DB={...DB,events:[],violations:[],reviews:[],statements:[],followups:[],tasks:[],auditLog:[],importBatches:[]};saveDB();toast('تم الإعادة ✅','ok');}">🔄 إعادة ضبط الكل</button>
+      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.events=[];saveDB();toast('تم ✅','ok');},'حذف جميع الأحداث','أحداث جماعي','ALL')">🗑️ حذف كل الأحداث</button>
+      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.violations=[];saveDB();toast('تم ✅','ok');},'حذف جميع المخالفات','مخالفات جماعي','ALL')">🗑️ حذف كل المخالفات</button>
+      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB={...DB,events:[],violations:[],reviews:[],statements:[],followups:[],tasks:[],auditLog:[],importBatches:[]};saveDB();toast('تم الإعادة ✅','ok');},'إعادة ضبط قاعدة البيانات بالكامل — لا يمكن التراجع','إعادة ضبط','ALL')">🔄 إعادة ضبط الكل</button>
     </div>
   </div>`;
 }
@@ -2609,7 +2911,8 @@ function viData(){
     'المصنع':v.factory||'','المنطقة':v.area||'','الموقع':v.location||'',
     'نوع المخالفة':v.type||'','درجة الخطورة':v.severity||'','الحالة':v.status||'',
     'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
-    'الشخص المعني':v.concernedParty||'','المسؤول':v.followUpResponsible||'','ملاحظات':v.notes||''
+    'الشخص المعني':v.concernedParty||'','المسؤول':v.followUpResponsible||'','ملاحظات':v.notes||'',
+    'الإفادة':v.statement?.text||'','مقدم الإفادة':v.statement?.party||'','حالة الإفادة':v.statement?.status||''
   }));
 }
 function rvData(){
@@ -2618,7 +2921,8 @@ function rvData(){
     'المنطقة':r.area||'','الموضوع':r.subject||'','سبب المراجعة':r.reason||'',
     'المطلوب مراجعته':r.what||'','المسؤول':r.responsible||'',
     'الأولوية':r.priority||'','الموعد النهائي':r.deadline||'',
-    'الحالة':r.status||'','النتيجة':r.result||'','ملاحظات':r.notes||''
+    'الحالة':r.status||'','النتيجة':r.result||'','ملاحظات':r.notes||'',
+    'الإفادة':r.statement?.text||'','مقدم الإفادة':r.statement?.party||'','حالة الإفادة':r.statement?.status||''
   }));
 }
 function stmData(){
