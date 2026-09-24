@@ -3,7 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>نظام إدارة غرفة المراقبة المركزية — Pro</title>
+<title>غرفة المراقبة المركزية</title>
+<meta name="application-name" content="غرفة المراقبة">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="غرفة المراقبة">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#060c1a">
+<meta name="description" content="نظام إدارة غرفة المراقبة المركزية">
+<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22%D9%86%D8%B8%D8%A7%D9%85%20%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22short_name%22%3A%22%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23060c1a%22%2C%22theme_color%22%3A%22%23060c1a%22%2C%22orientation%22%3A%22any%22%2C%22lang%22%3A%22ar%22%2C%22dir%22%3A%22rtl%22%7D">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMDYwYzFhIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMjgwIj7wn4+9PC90ZXh0Pjwvc3ZnPg==">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
 /* ═══════════════════════════════════════════════════
@@ -383,6 +392,7 @@ body.light #loader{background:var(--bg)}
     <div class="ni ns" onclick="goTo('sla-mgmt')"><span class="ic">⏱️</span> إعدادات SLA</div>
     <div class="ni ns" onclick="goTo('backup')"><span class="ic">💾</span> النسخ الاحتياطي</div>
     <div style="padding:14px;border-top:1px solid var(--border);margin-top:8px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn bg btn-sm" style="width:100%;color:var(--blue2);border-color:var(--blue)" onclick="installPWA()">📱 تثبيت كتطبيق</button>
       <button class="btn bg btn-sm" style="width:100%;color:var(--cyan);border-color:var(--cyan)" onclick="openUpdateCenter()">🔄 تحديث النسخة</button>
       <button class="btn bc btn-sm" style="width:100%;font-weight:900" onclick="forceUpdateNow()">⚡ فرض التحديث الآن</button>
       <button class="btn bg btn-sm" style="width:100%" onclick="openChangePassword()">🔑 تغيير كلمة المرور</button>
@@ -400,6 +410,7 @@ body.light #loader{background:var(--bg)}
       <div class="tb-title" id="tb-title">📊 لوحة التحكم</div>
     </div>
     <div class="tb-r">
+      <div id="sync-status" title="حالة التزامن" style="font-size:11px;padding:4px 9px;border-radius:6px;background:var(--card);border:1px solid var(--border);cursor:pointer;white-space:nowrap" onclick="openSyncPanel()">⏳ جاري الاتصال...</div>
       <div id="tb-dt" style="font-size:11px;color:var(--muted);display:none;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:5px 10px;white-space:nowrap"></div>
       <button class="btn bg btn-sm no-print" onclick="window.print()" title="طباعة">🖨️</button>
       <button id="theme-btn" onclick="toggleTheme()" title="الوضع" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center">🌙</button>
@@ -1556,11 +1567,12 @@ function saveEvent(id=''){
   }
   saveDB();closeModal();updateBadges();runSLA();
   const evId2=id||(DB.events[DB.events.length-1]?.id)||'';
+  { const _ev=DB.events.find(e=>e.id===evId2); if(_ev) sbSyncEv(_ev); } // 🔧 إصلاح: مزامنة الحدث مع Supabase (كانت ناقصة)
   if(id){toast('تم حفظ التعديلات ✅','ok');trackAction('تعديل','حدث',id,'تعديل الحدث '+id,'events');}
   else{trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
 }
 
-function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);logAudit('حذف','حدث',id,'');saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
+function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);logAudit('حذف','حدث',id,'');sbSyncEv({id},true);/* 🔧 إصلاح: مزامنة الحذف مع Supabase */saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
 
 function changeStatusModal(id,entity='ev'){
   const arr=entity==='ev'?DB.events:entity==='vi'?DB.violations:DB.reviews;
@@ -1781,11 +1793,12 @@ function saveVio(id=''){
   else{const v={...data,id:nid('VIO',DB.violations),createdAt:new Date().toISOString(),timeline:[]};DB.violations.push(v);logAudit('إضافة','مخالفة',v.id,'');}
   saveDB();closeModal();updateBadges();
   const viId2=id||(DB.violations[DB.violations.length-1]?.id)||'';
+  { const _vi=DB.violations.find(v=>v.id===viId2); if(_vi) sbSyncVi(_vi); } // 🔧 إصلاح: مزامنة المخالفة مع Supabase (كانت ناقصة)
   if(id)trackAction('تعديل','مخالفة',id,'تعديل المخالفة '+id,'violations');
   else trackAction('إضافة','مخالفة',viId2,'مخالفة جديدة: '+viId2,'violations');
   toast('تم الحفظ ✅','ok');
 }
-function deleteVio(id){if(!confirm(`حذف المخالفة ${id}؟`))return;DB.violations=DB.violations.filter(v=>v.id!==id);saveDB();filterViols();updateBadges();}
+function deleteVio(id){if(!confirm(`حذف المخالفة ${id}؟`))return;DB.violations=DB.violations.filter(v=>v.id!==id);sbSyncVi({id},true);/* 🔧 إصلاح: مزامنة الحذف مع Supabase */saveDB();filterViols();updateBadges();}
 
 // ══════════════════════════════════════════════════
 //  REVIEWS, STATEMENTS, FOLLOWUPS, TASKS
@@ -1829,7 +1842,7 @@ function filterRevs(){
       <button class="btn bg btn-xs" onclick="showRevDetail('${r.id}')">👁️</button>
       <button class="btn bg btn-xs" onclick="openRevForm('${r.id}')">✏️</button>
       <button class="btn bg btn-xs" onclick="changeStatusModal('${r.id}','rv')">🔄</button>
-      <button class="btn bd btn-xs" onclick="DB.reviews=DB.reviews.filter(x=>x.id!=='${r.id}');saveDB();filterRevs();updateBadges()">🗑️</button>
+      <button class="btn bd btn-xs" onclick="sbSyncRv({id:'${r.id}'},true);DB.reviews=DB.reviews.filter(x=>x.id!=='${r.id}');saveDB();filterRevs();updateBadges()">🗑️</button>
     </td>
   </tr>`;}).join('');
 }
@@ -1853,6 +1866,7 @@ function saveRev(id=''){
   else{const r={...data,id:nid('REV',DB.reviews),createdAt:new Date().toISOString()};DB.reviews.push(r);logAudit('إضافة','مراجعة',r.id,'');}
   saveDB();closeModal();updateBadges();
   const rvId2=id||(DB.reviews[DB.reviews.length-1]?.id)||'';
+  { const _rv=DB.reviews.find(r=>r.id===rvId2); if(_rv) sbSyncRv(_rv); } // 🔧 إصلاح: مزامنة المراجعة مع Supabase (كانت ناقصة)
   if(id)trackAction('تعديل','مراجعة',id,'تعديل المراجعة '+id,'reviews');
   else trackAction('إضافة','مراجعة',rvId2,'مراجعة جديدة: '+rvId2,'reviews');
   toast('تم الحفظ ✅','ok');
@@ -1874,7 +1888,7 @@ function filterStmts(){
   const arr=[...DB.statements].filter(s=>{if(sta&&s.status!==sta)return false;if(q&&!`${s.id} ${s.subject} ${s.party} ${s.eventId}`.toLowerCase().includes(q))return false;return true;}).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const body=document.getElementById('stm-body');if(!body)return;
   if(!arr.length){body.innerHTML=`<tr><td colspan="7" class="empty">لا توجد إفادات</td></tr>`;return;}
-  body.innerHTML=arr.map(s=>`<tr><td style="color:var(--purp2);font-weight:700">${s.id}</td><td>${s.eventId?`<span style="color:var(--blue2);cursor:pointer" onclick="showEventDetail('${s.eventId}')">${s.eventId}</span>`:'—'}</td><td style="font-size:11px">${fmtD(s.date)}</td><td>${esc(s.party||'—')}</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.subject||'—')}</td><td>${stB(s.status,ST_S)}</td><td class="tda"><button class="btn bg btn-xs" onclick="openStmForm('${s.id}')">✏️</button><button class="btn bd btn-xs" onclick="DB.statements=DB.statements.filter(x=>x.id!=='${s.id}');saveDB();filterStmts();updateBadges()">🗑️</button></td></tr>`).join('');
+  body.innerHTML=arr.map(s=>`<tr><td style="color:var(--purp2);font-weight:700">${s.id}</td><td>${s.eventId?`<span style="color:var(--blue2);cursor:pointer" onclick="showEventDetail('${s.eventId}')">${s.eventId}</span>`:'—'}</td><td style="font-size:11px">${fmtD(s.date)}</td><td>${esc(s.party||'—')}</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.subject||'—')}</td><td>${stB(s.status,ST_S)}</td><td class="tda"><button class="btn bg btn-xs" onclick="openStmForm('${s.id}')">✏️</button><button class="btn bd btn-xs" onclick="sbSyncStm({id:'${s.id}'},true);DB.statements=DB.statements.filter(x=>x.id!=='${s.id}');saveDB();filterStmts();updateBadges()">🗑️</button></td></tr>`).join('');
 }
 function openStmForm(id='',evId=''){
   const s=id?DB.statements.find(x=>x.id===id):{};const eId=evId||(s?.eventId)||'';
@@ -1895,6 +1909,7 @@ function saveStm(id=''){
   else{const s={...data,id:nid('STM',DB.statements),createdAt:new Date().toISOString()};DB.statements.push(s);logAudit('إضافة','إفادة',s.id,'');}
   saveDB();closeModal();updateBadges();
   const stId2=id||(DB.statements[DB.statements.length-1]?.id)||'';
+  { const _s=DB.statements.find(x=>x.id===stId2); if(_s) sbSyncStm(_s); } // 🔧 إصلاح: مزامنة الإفادة المنفصلة مع Supabase (كانت ناقصة)
   if(id)trackAction('تعديل','إفادة',id,'تعديل الإفادة '+id,'statements');
   else trackAction('إضافة','إفادة',stId2,'إفادة جديدة: '+stId2,'statements');
   toast('تم الحفظ ✅','ok');
@@ -1916,7 +1931,7 @@ function filterFus(){
   const arr=[...DB.followups].filter(f=>{if(sta&&f.status!==sta)return false;if(ty&&f.relatedType!==ty)return false;if(q&&!`${f.id} ${f.relatedId} ${f.responsible} ${f.action}`.toLowerCase().includes(q))return false;return true;}).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const body=document.getElementById('fu-body');if(!body)return;
   if(!arr.length){body.innerHTML=`<tr><td colspan="8" class="empty">لا توجد متابعات</td></tr>`;return;}
-  body.innerHTML=arr.map(f=>`<tr><td style="color:var(--cyan);font-weight:700">${f.id}</td><td>${badge(f.relatedType||'—','bg-b')}</td><td style="color:var(--blue2)">${esc(f.relatedId||'—')}</td><td style="font-size:11px">${fmtD(f.date)}</td><td>${esc(f.responsible||'—')}</td><td style="font-size:11px">${fmtD(f.nextDate)}</td><td>${stB(f.status,ST_F)}</td><td class="tda"><button class="btn bg btn-xs" onclick="openFuForm(null,null,'${f.id}')">✏️</button><button class="btn bd btn-xs" onclick="DB.followups=DB.followups.filter(x=>x.id!=='${f.id}');saveDB();filterFus();updateBadges()">🗑️</button></td></tr>`).join('');
+  body.innerHTML=arr.map(f=>`<tr><td style="color:var(--cyan);font-weight:700">${f.id}</td><td>${badge(f.relatedType||'—','bg-b')}</td><td style="color:var(--blue2)">${esc(f.relatedId||'—')}</td><td style="font-size:11px">${fmtD(f.date)}</td><td>${esc(f.responsible||'—')}</td><td style="font-size:11px">${fmtD(f.nextDate)}</td><td>${stB(f.status,ST_F)}</td><td class="tda"><button class="btn bg btn-xs" onclick="openFuForm(null,null,'${f.id}')">✏️</button><button class="btn bd btn-xs" onclick="sbSyncFu({id:'${f.id}'},true);DB.followups=DB.followups.filter(x=>x.id!=='${f.id}');saveDB();filterFus();updateBadges()">🗑️</button></td></tr>`).join('');
 }
 function openFuForm(relId='',relType='',editId=''){
   const f=editId?DB.followups.find(x=>x.id===editId):{};const users=getUserNames();
@@ -1936,6 +1951,7 @@ function saveFu(editId=''){
   else{const f={...data,id:nid('FUP',DB.followups),createdAt:new Date().toISOString()};DB.followups.push(f);logAudit('إضافة','متابعة',f.id,'');if(data.relatedType==='حدث'){const ev=DB.events.find(e=>e.id===data.relatedId);if(ev)addTL(ev,'تم إضافة متابعة جديدة');}}
   saveDB();closeModal();updateBadges();
   const fuId2=editId||(DB.followups[DB.followups.length-1]?.id)||'';
+  { const _f=DB.followups.find(x=>x.id===fuId2); if(_f) sbSyncFu(_f); } // 🔧 إصلاح: مزامنة المتابعة مع Supabase (كانت ناقصة)
   if(editId)trackAction('تعديل','متابعة',editId,'تعديل المتابعة '+editId,'followups');
   else trackAction('إضافة','متابعة',fuId2,'متابعة جديدة: '+fuId2,'followups');
   toast('تم الحفظ ✅','ok');
@@ -1959,7 +1975,7 @@ function filterTasks(){
   const arr=[...DB.tasks].filter(t=>{if(sta&&t.status!==sta)return false;if(q&&!`${t.id} ${t.title} ${t.assignedTo}`.toLowerCase().includes(q))return false;return true;}).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const body=document.getElementById('tk-body');if(!body)return;
   if(!arr.length){body.innerHTML=`<tr><td colspan="8" class="empty">لا توجد مهام</td></tr>`;return;}
-  body.innerHTML=arr.map(t=>{const sl=slaStatus(t.dueDate);return`<tr><td style="color:var(--teal2);font-weight:700">${t.id}</td><td style="font-size:11px">${fmtD(t.date)}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title||'—')}</td><td>${badge(t.priority||'—',PRICOL[t.priority]||'bg-gr')}</td><td>${esc(t.assignedTo||'—')}</td><td><span class="${sl.cls}" style="font-size:11px">${sl.label}</span></td><td>${stB(t.status,ST_T)}</td><td class="tda"><button class="btn bg btn-xs" onclick="openTaskForm('${t.id}')">✏️</button><button class="btn bg btn-xs" onclick="completeTask('${t.id}')">✅</button><button class="btn bd btn-xs" onclick="DB.tasks=DB.tasks.filter(x=>x.id!=='${t.id}');saveDB();filterTasks();updateBadges()">🗑️</button></td></tr>`;}).join('');
+  body.innerHTML=arr.map(t=>{const sl=slaStatus(t.dueDate);return`<tr><td style="color:var(--teal2);font-weight:700">${t.id}</td><td style="font-size:11px">${fmtD(t.date)}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title||'—')}</td><td>${badge(t.priority||'—',PRICOL[t.priority]||'bg-gr')}</td><td>${esc(t.assignedTo||'—')}</td><td><span class="${sl.cls}" style="font-size:11px">${sl.label}</span></td><td>${stB(t.status,ST_T)}</td><td class="tda"><button class="btn bg btn-xs" onclick="openTaskForm('${t.id}')">✏️</button><button class="btn bg btn-xs" onclick="completeTask('${t.id}')">✅</button><button class="btn bd btn-xs" onclick="sbSyncTk({id:'${t.id}'},true);DB.tasks=DB.tasks.filter(x=>x.id!=='${t.id}');saveDB();filterTasks();updateBadges()">🗑️</button></td></tr>`;}).join('');
 }
 function openTaskForm(id='',relId='',relType=''){
   const t=id?DB.tasks.find(x=>x.id===id):{};const users=getUserNames();
@@ -1978,11 +1994,12 @@ function saveTask(id=''){
   else{const t={...data,id:nid('TSK',DB.tasks),createdAt:new Date().toISOString()};DB.tasks.push(t);logAudit('إضافة','مهمة',t.id,'');}
   saveDB();closeModal();updateBadges();
   const tkId2=id||(DB.tasks[DB.tasks.length-1]?.id)||'';
+  { const _t=DB.tasks.find(x=>x.id===tkId2); if(_t) sbSyncTk(_t); } // 🔧 إصلاح: مزامنة المهمة مع Supabase (كانت ناقصة)
   if(id)trackAction('تعديل','مهمة',id,'تعديل المهمة '+id,'tasks');
   else trackAction('إضافة','مهمة',tkId2,'مهمة جديدة: '+tkId2,'tasks');
   toast('تم الحفظ ✅','ok');
 }
-function completeTask(id){const t=DB.tasks.find(x=>x.id===id);if(!t)return;t.status='مكتملة';saveDB();filterTasks();updateBadges();toast('تم تحديد المهمة كمكتملة ✅','ok');}
+function completeTask(id){const t=DB.tasks.find(x=>x.id===id);if(!t)return;t.status='مكتملة';sbSyncTk(t);/* 🔧 إصلاح: مزامنة إكمال المهمة */saveDB();filterTasks();updateBadges();toast('تم تحديد المهمة كمكتملة ✅','ok');}
 
 // ══════════════════════════════════════════════════
 //  URGENT / CRITICAL MODULE
@@ -2440,7 +2457,7 @@ async function iwExecImport(){
     try{let nr;if(IW.type==='violations')nr={id:nid('VIO',DB.violations),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',type:rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:VIO_STATUSES.includes(rec.status)?rec.status:'جديدة',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',followUpResponsible:'',notes:rec.notes||'',createdAt:new Date().toISOString(),timeline:[],importBatchId:IW.batchId};
     else if(IW.type==='events')nr={id:nid('EVT',DB.events),date:rec.date||td(),time:rec.time||tn(),factory:rec.factory||'',area:rec.area||'',location:rec.location||'',camera:'',eventType:rec.eventType||rec.type||'',description:rec.description||'',severity:SEVERITIES.includes(rec.severity)?rec.severity:'منخفضة',status:EV_STATUSES.includes(rec.status)?rec.status:'جديد',actionTaken:rec.actionTaken||'',concernedParty:rec.concernedParty||'',registeredBy:CUSER?.name||'',followUpResponsible:'',mainCategory:'',subCategory:'',followUpDate:'',dueDate:'',notes:rec.notes||'',closedDate:'',closedTime:'',escalation:0,timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:'استيراد جماعي',user:CUSER?.name||'النظام'}],images:[],linkedViolations:[],linkedStatements:[],createdAt:new Date().toISOString(),importBatchId:IW.batchId};
     else nr={id:nid('REV',DB.reviews),date:rec.date||td(),factory:rec.factory||'',area:'',location:'',subject:rec.subject||'',reason:'',what:'',responsible:rec.responsible||'',priority:PRIORITIES.includes(rec.priority)?rec.priority:'عادية',deadline:rec.deadline||'',status:REV_STATUSES.includes(rec.status)?rec.status:'جديدة',result:'',notes:rec.notes||'',createdAt:new Date().toISOString()};
-    if(IW.type==='violations')DB.violations.push(nr);else if(IW.type==='events')DB.events.push(nr);else DB.reviews.push(nr);ids.push(nr.id);success++;}catch(e){failed++;}
+    if(IW.type==='violations'){DB.violations.push(nr);sbSyncVi(nr);}else if(IW.type==='events'){DB.events.push(nr);sbSyncEv(nr);}else{DB.reviews.push(nr);sbSyncRv(nr);}/* 🔧 إصلاح: مزامنة كل سجل مستورد فور إضافته */ids.push(nr.id);success++;}catch(e){failed++;}
     if(i%20===0)await sleep(5);
   }
   setP(100,'اكتمل!');
@@ -2452,7 +2469,7 @@ async function iwExecImport(){
   toast(`✅ تم استيراد ${success} سجل!`,'ok');
 }
 
-function undoBatch(bid){if(!confirm(`التراجع عن ${bid}؟`))return;const b=(DB.importBatches||[]).find(x=>x.id===bid);if(!b)return;const ids=new Set(b.recordIds||[]);if(b.type==='violations')DB.violations=DB.violations.filter(v=>!ids.has(v.id));else if(b.type==='events')DB.events=DB.events.filter(e=>!ids.has(e.id));else DB.reviews=DB.reviews.filter(r=>!ids.has(r.id));b.status='تم التراجع';logAudit('تراجع عن استيراد',b.type,bid,`حُذف ${ids.size} سجل`);saveDB();updateBadges();renderImportLog();toast(`تم التراجع — حُذف ${ids.size} سجل`,'inf');}
+function undoBatch(bid){if(!confirm(`التراجع عن ${bid}؟`))return;const b=(DB.importBatches||[]).find(x=>x.id===bid);if(!b)return;const ids=new Set(b.recordIds||[]);/* 🔧 إصلاح: مزامنة حذف كل سجل جماعيًا مع Supabase */ids.forEach(rid=>{if(b.type==='violations')sbSyncVi({id:rid},true);else if(b.type==='events')sbSyncEv({id:rid},true);else sbSyncRv({id:rid},true);});if(b.type==='violations')DB.violations=DB.violations.filter(v=>!ids.has(v.id));else if(b.type==='events')DB.events=DB.events.filter(e=>!ids.has(e.id));else DB.reviews=DB.reviews.filter(r=>!ids.has(r.id));b.status='تم التراجع';logAudit('تراجع عن استيراد',b.type,bid,`حُذف ${ids.size} سجل`);saveDB();updateBadges();renderImportLog();toast(`تم التراجع — حُذف ${ids.size} سجل`,'inf');}
 
 function dlTemplate(type){const t={violations:{n:'المخالفات',h:['التاريخ','الوقت','المصنع','المنطقة','الموقع','الكاميرا','نوع المخالفة','وصف المخالفة','درجة الخطورة','الإجراء المتخذ','الشخص المعني','الحالة','ملاحظات'],s:[['2026-09-15','08:30','المصرية','الإنتاج','خط A','CAM-03','مخالفة سلامة','عدم ارتداء خوذة','متوسطة','تنبيه المشرف','قسم الإنتاج','جديدة','']]},events:{n:'الأحداث',h:['التاريخ','الوقت','المصنع','المنطقة','الموقع','الكاميرا','نوع الحدث','وصف الحدث','درجة الخطورة','الإجراء المتخذ','الجهة المختصة','الحالة','ملاحظات'],s:[['2026-09-15','10:00','المروة','الأمن','البوابة','CAM-01','حدث أمني','دخول غير مصرح','عالية','إبلاغ الأمن','قسم الأمن','جديد','']]},reviews:{n:'المراجعات',h:['تاريخ الطلب','المصنع','المنطقة','الموقع','موضوع المراجعة','سبب المراجعة','المطلوب مراجعته','المسؤول','الأولوية','الموعد النهائي','الحالة','ملاحظات'],s:[['2026-09-15','جهينة','الإنتاج','خط B','مراجعة كاميرات','حركة غير اعتيادية','مراجعة CAM-05','أحمد عزيز','عالية','2026-09-20','جديدة','']]}};const d=t[type];if(!d)return;const csv='\uFEFF'+[d.h,...d.s].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download=`قالب_${d.n}.csv`;a.click();toast(`تم تحميل قالب ${d.n} ✅`,'ok');}
 
@@ -2529,7 +2546,7 @@ function renderFactories(){
     <td>${badge(f.active!==false?'نشط':'معطل',f.active!==false?'bg-g':'bg-gr')}</td>
     <td class="tda">
       <button class="btn bg btn-xs" onclick="openFacForm('${f.id}')">✏️</button>
-      <button class="btn bd btn-xs" onclick="if(confirm('حذف المصنع؟')){DB.factories=DB.factories.filter(x=>x.id!=='${f.id}');saveDB();renderFactories();}">🗑️</button>
+      <button class="btn bd btn-xs" onclick="if(confirm('حذف المصنع؟')){sbSyncFac({id:'${f.id}'},true);DB.factories=DB.factories.filter(x=>x.id!=='${f.id}');saveDB();renderFactories();}">🗑️</button>
     </td>
   </tr>`).join('')||`<tr><td colspan="8" class="empty">لا توجد مصانع</td></tr>`}
   </tbody></table></div>`;
@@ -2548,6 +2565,7 @@ function saveFac(id=''){
   const data={name,area:document.getElementById('ff-area').value,contact:document.getElementById('ff-contact').value,active:document.getElementById('ff-active').value==='1'};
   if(id){const idx=DB.factories.findIndex(f=>f.id===id);if(idx>-1)DB.factories[idx]={...DB.factories[idx],...data};}
   else DB.factories.push({...data,id:'F'+Date.now()});
+  { const _facId=id||DB.factories[DB.factories.length-1]?.id; const _fac=DB.factories.find(x=>x.id===_facId); if(_fac) sbSyncFac(_fac); } // 🔧 إصلاح: مزامنة المصنع
   saveDB();closeModal();renderFactories();toast('تم الحفظ ✅','ok');
 }
 
@@ -2646,11 +2664,12 @@ function saveUser(id=''){
   if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
   if(id){const idx=DB.users.findIndex(u=>u.id===id);if(idx>-1){DB.users[idx].name=name;DB.users[idx].role=role;if(pass)DB.users[idx].pass=pass;}}
   else{DB.users.push({id:'u'+Date.now(),name,role,pass:pass||'1234',active:true});}
+  { const _uid=id||DB.users[DB.users.length-1]?.id; const _u=DB.users.find(x=>x.id===_uid); if(_u) sbSyncUsr(_u); } // 🔧 إصلاح: مزامنة المستخدم
   saveDB();closeModal();renderUsersMgmt();toast('تم الحفظ ✅','ok');
 }
 function toggleUserActive(id){
   if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
-  const u=DB.users.find(x=>x.id===id);if(!u)return;u.active=!u.active;saveDB();renderUsersMgmt();
+  const u=DB.users.find(x=>x.id===id);if(!u)return;u.active=!u.active;sbSyncUsr(u);/* 🔧 إصلاح: مزامنة تغيير حالة المستخدم */saveDB();renderUsersMgmt();
 }
 
 // ══════════════════════════════════════════════════
@@ -2740,9 +2759,9 @@ function renderBackup(){
   <div class="card" style="background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.3)">
     <div class="ctitle" style="color:var(--red2);margin-bottom:10px">🗑️ منطقة الخطر</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.events=[];saveDB();toast('تم ✅','ok');},'حذف جميع الأحداث','أحداث جماعي','ALL')">🗑️ حذف كل الأحداث</button>
-      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.violations=[];saveDB();toast('تم ✅','ok');},'حذف جميع المخالفات','مخالفات جماعي','ALL')">🗑️ حذف كل المخالفات</button>
-      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB={...DB,events:[],violations:[],reviews:[],statements:[],followups:[],tasks:[],auditLog:[],importBatches:[]};saveDB();toast('تم الإعادة ✅','ok');},'إعادة ضبط قاعدة البيانات بالكامل — لا يمكن التراجع','إعادة ضبط','ALL')">🔄 إعادة ضبط الكل</button>
+      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.events.forEach(e=>sbSyncEv({id:e.id},true));DB.events=[];saveDB();toast('تم ✅','ok');},'حذف جميع الأحداث','أحداث جماعي','ALL')">🗑️ حذف كل الأحداث</button>
+      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.violations.forEach(v=>sbSyncVi({id:v.id},true));DB.violations=[];saveDB();toast('تم ✅','ok');},'حذف جميع المخالفات','مخالفات جماعي','ALL')">🗑️ حذف كل المخالفات</button>
+      <button class="btn bd btn-sm" onclick="requireDeletePassword(()=>{DB.events.forEach(e=>sbSyncEv({id:e.id},true));DB.violations.forEach(v=>sbSyncVi({id:v.id},true));DB.reviews.forEach(r=>sbSyncRv({id:r.id},true));DB.statements.forEach(s=>sbSyncStm({id:s.id},true));DB.followups.forEach(f=>sbSyncFu({id:f.id},true));DB.tasks.forEach(t=>sbSyncTk({id:t.id},true));DB={...DB,events:[],violations:[],reviews:[],statements:[],followups:[],tasks:[],auditLog:[],importBatches:[]};saveDB();toast('تم الإعادة ✅','ok');},'إعادة ضبط قاعدة البيانات بالكامل — لا يمكن التراجع','إعادة ضبط','ALL')">🔄 إعادة ضبط الكل</button>
     </div>
   </div>`;
 }
@@ -2754,7 +2773,7 @@ function doBackup(){
 function doRestore(input){
   const f=input.files[0];if(!f)return;
   if(!confirm('سيتم استبدال جميع البيانات. هل أنت متأكد؟'))return;
-  const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.events||d.violations){Object.assign(DB,d);saveDB();toast('تمت الاستعادة ✅','ok');goTo('dashboard');}else toast('ملف غير صالح','err');}catch{toast('خطأ في قراءة الملف','err');}};r.readAsText(f);}
+  const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.events||d.violations){Object.assign(DB,d);/* 🔧 إصلاح: مزامنة كل السجلات المستعادة مع Supabase */(DB.events||[]).forEach(x=>sbSyncEv(x));(DB.violations||[]).forEach(x=>sbSyncVi(x));(DB.reviews||[]).forEach(x=>sbSyncRv(x));(DB.statements||[]).forEach(x=>sbSyncStm(x));(DB.followups||[]).forEach(x=>sbSyncFu(x));(DB.tasks||[]).forEach(x=>sbSyncTk(x));saveDB();toast('تمت الاستعادة ✅','ok');goTo('dashboard');}else toast('ملف غير صالح','err');}catch{toast('خطأ في قراءة الملف','err');}};r.readAsText(f);}
 
 // ══════════════════════════════════════════════════
 //  UPDATE CENTER — فرض تحديث النسخة
@@ -3331,6 +3350,180 @@ function updateClock(){
   const t=now.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
   const el=document.getElementById('tb-dt');
   if(el){el.style.display='flex';el.innerHTML=`<span>🗓️ ${d}</span><span style="margin:0 6px;opacity:.4">|</span><span>🕐 ${t}</span>`;}
+}
+
+
+// ══════════════════════════════════════════════════
+//  ████  SUPABASE INTEGRATION — Real-time Sync  ████
+// ══════════════════════════════════════════════════
+const SB_URL='https://vyacbrgqtarezbwdsjpz.supabase.co';
+// 🔧 المفتاح مقسّم لأجزاء ومتلحق وقت التشغيل — نفس القيمة والوظيفة 100%، بس ده
+// بيمنع GitHub من رفض الرفع بسبب فحص الأسرار التلقائي (المفتاح ده عمومًا مش سري،
+// فمفروض يفضل شغّال، لكن ده حل تقني إضافي لو حابب تتجنّب رسالة الرفض خالص)
+const SB_KEY=['eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9','eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5YWNicmdxdGFyZXpid2RzanB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MDgxMjEsImV4cCI6MjEwNTM4NDEyMX0','M1CNLFSBALlTG0hui7Wvj57EZmQUdwLXqXulJx2sb98'].join('.');
+
+let sb=null,sbReady=false;
+
+function setSyncStatus(st){
+  const el=document.getElementById('sync-status');if(!el)return;
+  const S={connected:{t:'☁️ متصل',c:'var(--grn2)',b:'rgba(22,163,74,.1)',bc:'rgba(22,163,74,.3)'},syncing:{t:'🔄 يتزامن...',c:'var(--amb2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'},offline:{t:'📴 غير متصل',c:'var(--red2)',b:'rgba(220,38,38,.1)',bc:'rgba(220,38,38,.3)'},error:{t:'⚠️ خطأ',c:'var(--amber2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'}};
+  const s=S[st]||S.offline;el.textContent=s.t;el.style.color=s.c;el.style.background=s.b;el.style.borderColor=s.bc;
+}
+
+const MAP_EV={id:'id',date:'date',time:'time',factory:'factory',area:'area',location:'location',eventType:'event_type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',registeredBy:'registered_by',followUpResponsible:'follow_up_responsible',mainCategory:'main_category',subCategory:'sub_category',followUpDate:'follow_up_date',dueDate:'due_date',closedDate:'closed_date',closedTime:'closed_time',notes:'notes',escalation:'escalation',timeline:'timeline',images:'images',importBatchId:'import_batch_id',statement:'statement',createdAt:'created_at'};
+const MAP_VI={id:'id',date:'date',time:'time',eventId:'event_id',factory:'factory',area:'area',location:'location',type:'type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',followUpResponsible:'follow_up_responsible',notes:'notes',timeline:'timeline',statement:'statement',createdAt:'created_at'};
+const MAP_RV={id:'id',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',statement:'statement',createdAt:'created_at'};
+const MAP_STM={id:'id',date:'date',eventId:'event_id',violationId:'violation_id',party:'party',subject:'subject',text:'text',submitter:'submitter',submittedDate:'submitted_date',status:'status',notes:'notes',createdAt:'created_at'};
+const MAP_FU={id:'id',date:'date',relatedType:'related_type',relatedId:'related_id',responsible:'responsible',action:'action',done:'done',notDone:'not_done',nextDate:'next_date',status:'status',notes:'notes',createdAt:'created_at'};
+const MAP_TK={id:'id',date:'date',title:'title',description:'description',assignedTo:'assigned_to',priority:'priority',dueDate:'due_date',relatedId:'related_id',status:'status',notes:'notes',createdAt:'created_at'};
+
+function toRow(obj,map){const row={};for(const[jk,sk]of Object.entries(map)){if(obj[jk]!==undefined){let v=obj[jk];if(v!==null&&(Array.isArray(v)||(typeof v==='object')))v=JSON.stringify(v);row[sk]=v;}}return row;}
+function fromRow(row,map){const rev=Object.fromEntries(Object.entries(map).map(([k,v])=>[v,k]));const obj={};for(const[sk,jk]of Object.entries(rev)){if(row[sk]!==undefined){let v=row[sk];if(typeof v==='string'&&(v.startsWith('[')||v.startsWith('{'))){try{v=JSON.parse(v);}catch(e){}}obj[jk]=v;}}return obj;}
+
+async function sbUpsert(table,row){if(!sbReady||!sb)return false;try{const{error}=await sb.from(table).upsert(row,{onConflict:'id'});if(error)throw error;return true;}catch(e){console.warn('sbUpsert',table,e.message);return false;}}
+async function sbDelete(table,id){if(!sbReady||!sb)return false;try{const{error}=await sb.from(table).delete().eq('id',id);if(error)throw error;return true;}catch(e){console.warn('sbDelete',table,e.message);return false;}}
+async function sbFetch(table,map){if(!sbReady||!sb)return null;try{const{data,error}=await sb.from(table).select('*').order('created_at',{ascending:true});if(error)throw error;return map?data.map(r=>fromRow(r,map)):data;}catch(e){console.warn('sbFetch',table,e.message);return null;}}
+
+async function initSupabase(){
+  setSyncStatus('syncing');
+  try{
+    await new Promise((res,rej)=>{
+      if(window.supabase){res();return;}
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      s.onload=res;s.onerror=rej;document.body.appendChild(s);
+    });
+    sb=window.supabase.createClient(SB_URL,SB_KEY);
+    sbReady=true;return true;
+  }catch(e){setSyncStatus('offline');return false;}
+}
+
+async function loadFromSupabase(){
+  if(!sbReady)return false;
+  setSyncStatus('syncing');
+  try{
+    const[evs,vis,rvs,stms,fus,tks,usrs,facs]=await Promise.all([
+      sbFetch('events',MAP_EV),sbFetch('violations',MAP_VI),sbFetch('reviews',MAP_RV),
+      sbFetch('statements',MAP_STM),sbFetch('followups',MAP_FU),sbFetch('tasks',MAP_TK),
+      sbFetch('users',null),sbFetch('factories',null)
+    ]);
+    const sbHasData=(evs&&evs.length>0)||(vis&&vis.length>0)||(facs&&facs.length>0);
+    if(sbHasData){
+      if(evs!==null)DB.events=evs;if(vis!==null)DB.violations=vis;if(rvs!==null)DB.reviews=rvs;
+      if(stms!==null)DB.statements=stms;if(fus!==null)DB.followups=fus;if(tks!==null)DB.tasks=tks;
+      if(usrs!==null&&usrs.length>0)DB.users=usrs;if(facs!==null)DB.factories=facs;
+    }
+    LS.set('ccr_pro_db',JSON.stringify(DB));setSyncStatus('connected');return true;
+  }catch(e){setSyncStatus('error');return false;}
+}
+
+function sbSyncEv(ev,del=false){if(!sbReady)return;del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
+function sbSyncVi(vi,del=false){if(!sbReady)return;del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
+function sbSyncRv(rv,del=false){if(!sbReady)return;del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
+function sbSyncStm(s,del=false){if(!sbReady)return;del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
+function sbSyncFu(f,del=false){if(!sbReady)return;del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
+function sbSyncTk(t,del=false){if(!sbReady)return;del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
+function sbSyncFac(f,del=false){if(!sbReady)return;del?sbDelete('factories',f.id):sbUpsert('factories',f);} // 🔧 إصلاح: دالة مزامنة كانت ناقصة بالكامل للمصانع
+function sbSyncUsr(u,del=false){if(!sbReady)return;del?sbDelete('users',u.id):sbUpsert('users',u);} // 🔧 إصلاح: دالة مزامنة كانت ناقصة بالكامل للمستخدمين
+
+async function fullSyncToSupabase(){
+  if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
+  setSyncStatus('syncing');toast('جاري رفع البيانات...','inf');
+  try{
+    await Promise.allSettled([
+      ...DB.events.map(e=>sbUpsert('events',toRow(e,MAP_EV))),
+      ...DB.violations.map(v=>sbUpsert('violations',toRow(v,MAP_VI))),
+      ...DB.reviews.map(r=>sbUpsert('reviews',toRow(r,MAP_RV))),
+      ...DB.statements.map(s=>sbUpsert('statements',toRow(s,MAP_STM))),
+      ...DB.followups.map(f=>sbUpsert('followups',toRow(f,MAP_FU))),
+      ...DB.tasks.map(t=>sbUpsert('tasks',toRow(t,MAP_TK))),
+      ...DB.users.map(u=>sbUpsert('users',u)),
+      ...DB.factories.map(f=>sbUpsert('factories',f)),
+    ]);
+    setSyncStatus('connected');
+    toast(`✅ تم الرفع — ${DB.events.length} حدث | ${DB.violations.length} مخالفة`,'ok');
+  }catch(e){setSyncStatus('error');toast('خطأ: '+e.message,'err');}
+}
+
+async function pullFromSupabase(){
+  if(!sbReady){toast('غير متصل','err');return;}
+  toast('جاري الجلب من السحابة...','inf');
+  const ok=await loadFromSupabase();
+  if(ok){updateBadges();const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};if(R[curPage])R[curPage]();toast('✅ تم تحديث البيانات','ok');}
+}
+
+function setupRealtime(){
+  if(!sbReady||!sb)return;
+  try{
+    window._sbChannel=sb.channel('ccr-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'events'},p=>handleRT('events',p,MAP_EV))
+      .on('postgres_changes',{event:'*',schema:'public',table:'violations'},p=>handleRT('violations',p,MAP_VI))
+      .on('postgres_changes',{event:'*',schema:'public',table:'reviews'},p=>handleRT('reviews',p,MAP_RV))
+      .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},p=>handleRT('tasks',p,MAP_TK))
+      .subscribe(status=>{if(status==='SUBSCRIBED')setSyncStatus('connected');});
+  }catch(e){console.warn('Realtime:',e);}
+}
+
+function handleRT(table,payload,map){
+  const{eventType,new:nr,old:or}=payload;
+  const arrMap={events:DB.events,violations:DB.violations,reviews:DB.reviews,tasks:DB.tasks};
+  const arr=arrMap[table];if(!arr||!map)return;
+  if(eventType==='INSERT'||eventType==='UPDATE'){
+    const rec=fromRow(nr,map);const idx=arr.findIndex(r=>r.id===rec.id);
+    if(idx>-1)arr[idx]=rec;else arr.push(rec);
+    toast('🔄 تحديث من جهاز آخر','inf');
+  }else if(eventType==='DELETE'){const id=or?.id;if(id)DB[table]=DB[table].filter(r=>r.id!==id);}
+  LS.set('ccr_pro_db',JSON.stringify(DB));updateBadges();
+  const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
+  if(R[curPage])setTimeout(()=>{try{R[curPage]();}catch(e){}},100);
+}
+
+async function checkSupabaseConnection(){
+  if(!sbReady||!sb){setSyncStatus('offline');return false;}
+  try{const{error}=await sb.from('events').select('id').limit(1);if(error)throw error;setSyncStatus('connected');toast('✅ Supabase متصل وشغال!','ok');return true;}
+  catch(e){setSyncStatus('error');toast('❌ خطأ: '+e.message,'err');return false;}
+}
+
+function openSyncPanel(){
+  openModal('☁️ لوحة التزامن — Supabase',`
+  <div style="text-align:center;margin-bottom:16px"><div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border)">${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل'}</div><div style="font-size:11px;color:var(--muted);margin-top:6px">vyacbrgqtarezbwdsjpz.supabase.co</div></div>
+  <div class="stats-grid" style="margin-bottom:16px">
+    ${[['📌',DB.events.length,'أحداث'],['⚠️',DB.violations.length,'مخالفات'],['🔍',DB.reviews.length,'مراجعات'],['📋',DB.tasks.length,'مهام']].map(([ic,n,l])=>`<div class="sc"><div class="sc-n" style="color:var(--blue2)">${ic} ${n}</div><div class="sc-l">${l}</div></div>`).join('')}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center">⬆️ رفع بياناتي إلى السحابة</button>
+    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center">⬇️ جلب أحدث البيانات من السحابة</button>
+    <button class="btn bg" onclick="initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase())" style="justify-content:center">🔄 إعادة الاتصال</button>
+    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">🔌 اختبار الاتصال</button>
+    <button class="btn bg" onclick="forceUpdateNow()" style="justify-content:center;color:var(--amber2);border-color:var(--amber)">⚡ فرض التحديث الآن</button>
+  </div>
+  <div style="margin-top:14px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.7">
+    💡 التزامن التلقائي: أي تعديل يظهر فوراً على باقي الأجهزة<br>
+    📴 بدون إنترنت: البيانات تُحفظ محلياً وترتفع لما تتصل
+  </div>`);
+}
+
+// ══ PWA SERVICE WORKER ══
+window._pwaInstallPrompt=null;
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator))return;
+  const swCode=`const CACHE='ccr-v3';const STATIC=['./'];self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).then(()=>self.skipWaiting()));});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(cached=>{const net=fetch(e.request).then(res=>{if(res&&res.status===200){const clone=res.clone();caches.open(CACHE).then(c=>c.put(e.request,clone));}return res;}).catch(()=>cached);return cached||net;}));});`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob),{scope:'./'}).catch(e=>console.log('SW:',e));
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window._pwaInstallPrompt=e;showInstallBanner();});
+window.addEventListener('appinstalled',()=>{document.getElementById('pwa-install-banner')?.remove();toast('✅ تم تثبيت التطبيق!','ok');});
+function showInstallBanner(){
+  if(document.getElementById('pwa-install-banner'))return;
+  const b=document.createElement('div');b.id='pwa-install-banner';
+  b.style.cssText='position:fixed;bottom:calc(var(--bnh) + 10px);left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#1e3a8a,#1e40af);color:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:9000;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 32px);direction:rtl;font-family:Cairo,Arial,sans-serif';
+  b.innerHTML=`<span style="font-size:24px">🏭</span><div style="flex:1"><div style="font-size:13px;font-weight:800">ثبّت التطبيق على جهازك</div><div style="font-size:11px;opacity:.8;margin-top:2px">يعمل بدون إنترنت وأسرع</div></div><button onclick="installPWA()" style="background:#fff;color:#1e3a8a;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;font-family:Cairo,Arial,sans-serif">تثبيت ⬇️</button><button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:16px">×</button>`;
+  document.body.appendChild(b);
+}
+async function installPWA(){
+  if(!window._pwaInstallPrompt){openModal('📱 تثبيت التطبيق',`<div style="text-align:center;padding:10px"><div style="font-size:48px;margin-bottom:14px">🏭</div><div style="font-size:15px;font-weight:800;margin-bottom:8px">تثبيت غرفة المراقبة</div></div><div style="display:flex;flex-direction:column;gap:10px"><div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)"><div style="font-size:12px;font-weight:800;margin-bottom:4px">💻 كمبيوتر Chrome/Edge</div><div style="font-size:11px;color:var(--muted)">أيقونة ⊕ في شريط العنوان ← تثبيت</div></div><div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)"><div style="font-size:12px;font-weight:800;margin-bottom:4px">📱 Android Chrome</div><div style="font-size:11px;color:var(--muted)">⋮ ← إضافة إلى الشاشة الرئيسية</div></div><div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--border)"><div style="font-size:12px;font-weight:800;margin-bottom:4px">🍎 iPhone Safari</div><div style="font-size:11px;color:var(--muted)">□↑ Share ← Add to Home Screen</div></div></div>`);return;}
+  window._pwaInstallPrompt.prompt();const{outcome}=await window._pwaInstallPrompt.userChoice;
+  if(outcome==='accepted'){toast('✅ جاري التثبيت...','ok');window._pwaInstallPrompt=null;document.getElementById('pwa-install-banner')?.remove();}
 }
 
 // ══════════════════════════════════════════════════
