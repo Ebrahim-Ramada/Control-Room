@@ -14,25 +14,6 @@
 <link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22%D9%86%D8%B8%D8%A7%D9%85%20%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22short_name%22%3A%22%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23060c1a%22%2C%22theme_color%22%3A%22%23060c1a%22%2C%22orientation%22%3A%22any%22%2C%22lang%22%3A%22ar%22%2C%22dir%22%3A%22rtl%22%7D">
 <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMDYwYzFhIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMjgwIj7wn4+9PC90ZXh0Pjwvc3ZnPg==">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="preconnect" href="https://vyacbrgqtarezbwdsjpz.supabase.co">
-<script>
-// Pre-load Supabase ASAP with CDN fallback
-(function(){
-  const urls=[
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/supabase.min.js',
-    'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'
-  ];
-  function tryLoad(i){
-    if(i>=urls.length||window.supabase)return;
-    const s=document.createElement('script');s.src=urls[i];s.async=true;
-    s.onload=()=>{window._sbPreloaded=true;};
-    s.onerror=()=>{s.remove();setTimeout(()=>tryLoad(i+1),300);};
-    document.head.appendChild(s);
-  }
-  tryLoad(0);
-})();
-</script>
 <style>
 /* ═══════════════════════════════════════════════════
    DESIGN SYSTEM — ONE APP — ALL DEVICES
@@ -2366,7 +2347,454 @@ function renderReportCenter(){
 // ══════════════════════════════════════════════════
 //  IMPORT CENTER
 // ══════════════════════════════════════════════════
-let IW={step:1,type:null,source:null,rawHeaders:[],rawRows:[],colMap:{},records:[],valid:[],errors:[],dups:[],selected:new Set(),batchId:null};
+// ══════════════════════════════════════════════════
+//  📊 POWERPOINT IMPORT SYSTEM — استيراد من PowerPoint
+// ══════════════════════════════════════════════════
+
+let PPT={file:null,slides:[],records:[],batchId:'',step:1};
+const PPT_VIO_KEYS=['مخالفة','مخالفات','violation','غرامة','عدم التزام','مخالف','مخالف سلامة','مخالفة أمنية','مخالفة تشغيلية'];
+const PPT_EV_KEYS=['حدث','أحداث','event','حادث','بلاغ','واقعة','incident','رصد','ملاحظة','تدخل'];
+
+// Load JSZip library
+function loadJSZip(){
+  return new Promise((res,rej)=>{
+    if(window.JSZip){res();return;}
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=res;s.onerror=()=>{
+      const s2=document.createElement('script');
+      s2.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      s2.onload=res;s2.onerror=rej;
+      document.body.appendChild(s2);
+    };
+    document.body.appendChild(s);
+  });
+}
+
+// Open PowerPoint import modal
+function openPPTXImport(){
+  PPT={file:null,slides:[],records:[],batchId:'IMP-PPT-'+Date.now(),step:1};
+  showPPTStep(1);
+}
+
+// Show step
+function showPPTStep(step){
+  PPT.step=step;
+  const steps=[{n:1,l:'📂 رفع الملف'},{n:2,l:'⚙️ تحليل'},{n:3,l:'👁️ مراجعة'},{n:4,l:'✅ تأكيد'}];
+  const stepsHTML=`<div style="display:flex;border-bottom:1px solid var(--border)">
+    ${steps.map(s=>`<div style="flex:1;padding:9px 4px;text-align:center;font-size:11px;font-weight:700;color:${step===s.n?'var(--blue2)':step>s.n?'var(--grn2)':'var(--muted)'};border-bottom:3px solid ${step===s.n?'var(--blue)':step>s.n?'var(--green)':'transparent'}">
+      ${step>s.n?'✓ ':''}${s.l}
+    </div>`).join('')}
+  </div>`;
+
+  if(step===1){
+    openModal('📊 استيراد من PowerPoint',`
+      ${stepsHTML}
+      <div style="padding:16px 0">
+        <div class="drop-z" id="ppt-drop" onclick="document.getElementById('ppt-fi').click()" style="min-height:160px">
+          <input type="file" id="ppt-fi" accept=".pptx" style="display:none" onchange="pptFileSelected(this)">
+          <div style="font-size:48px;margin-bottom:12px">📊</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">اسحب ملف PowerPoint هنا أو اضغط للاختيار</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">يدعم ملفات .pptx فقط</div>
+        </div>
+        <div id="ppt-file-info" style="display:none;margin-top:12px;padding:10px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:9px;font-size:12px;color:var(--grn2)"></div>
+        <div style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:9px;font-size:11px;color:var(--muted);line-height:1.8">
+          💡 التطبيق سيقوم بـ:<br>
+          • تحليل كل شريحة واستخراج النص والصور<br>
+          • تصنيف المحتوى (مخالفة أو حدث) تلقائياً<br>
+          • عرض نتائج للمراجعة قبل الحفظ النهائي
+        </div>
+      </div>`,
+      [{label:'التالي: تحليل →',cls:'bp',fn:'pptAnalyze()'}]);
+    // Drag & drop
+    const d=document.getElementById('ppt-drop');
+    d?.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('drag');});
+    d?.addEventListener('dragleave',()=>d?.classList.remove('drag'));
+    d?.addEventListener('drop',e=>{e.preventDefault();d?.classList.remove('drag');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.pptx')){const dt=new DataTransfer();dt.items.add(f);document.getElementById('ppt-fi').files=dt.files;pptFileSelected(document.getElementById('ppt-fi'));}else toast('يجب رفع ملف .pptx','err');});
+  }
+  else if(step===2){
+    document.getElementById('gmod-body').innerHTML=`
+      ${stepsHTML}
+      <div style="text-align:center;padding:30px 20px">
+        <div style="font-size:48px;margin-bottom:14px">⚙️</div>
+        <div style="font-size:14px;font-weight:800">جاري تحليل الملف...</div>
+        <div id="ppt-prog-txt" style="font-size:12px;color:var(--muted);margin:10px 0">قراءة الملف...</div>
+        <div class="prog" style="max-width:280px;margin:0 auto"><div class="prog-f" id="ppt-prog" style="width:0%;background:var(--orange)"></div></div>
+        <div id="ppt-prog-pct" style="font-size:13px;font-weight:700;color:var(--orange2);margin-top:8px">0%</div>
+      </div>`;
+    document.getElementById('gmod-foot').innerHTML='';
+    pptDoAnalyze();
+  }
+  else if(step===3){
+    renderPPTReview();
+  }
+  else if(step===4){
+    pptFinalSave();
+  }
+}
+
+function pptFileSelected(input){
+  const f=input.files[0];if(!f||!f.name.endsWith('.pptx')){toast('يجب رفع ملف .pptx','err');return;}
+  PPT.file=f;
+  const info=document.getElementById('ppt-file-info');
+  if(info){
+    info.style.display='block';
+    info.innerHTML=`✅ <strong>${esc(f.name)}</strong> — ${(f.size/1024).toFixed(0)} KB`;
+  }
+}
+
+async function pptAnalyze(){
+  if(!PPT.file){toast('يرجى اختيار ملف .pptx أولاً','err');return;}
+  showPPTStep(2);
+}
+
+function setPPTProg(pct,txt){
+  const p=document.getElementById('ppt-prog');const t=document.getElementById('ppt-prog-txt');const n=document.getElementById('ppt-prog-pct');
+  if(p)p.style.width=pct+'%';if(t)t.textContent=txt;if(n)n.textContent=pct+'%';
+}
+
+async function pptDoAnalyze(){
+  try{
+    setPPTProg(10,'تحميل مكتبة القراءة...');
+    await loadJSZip();
+    setPPTProg(25,'قراءة الملف...');
+
+    const zip=await JSZip.loadAsync(PPT.file);
+    setPPTProg(40,'استخراج الشرائح...');
+
+    // Find all slides
+    const slideFiles=Object.keys(zip.files)
+      .filter(n=>n.match(/^ppt\/slides\/slide\d+\.xml$/))
+      .sort((a,b)=>parseInt(a.match(/\d+/)[0])-parseInt(b.match(/\d+/)[0]));
+
+    if(!slideFiles.length){toast('لم يتم العثور على شرائح في الملف','err');showPPTStep(1);return;}
+
+    const parser=new DOMParser();
+    const slides=[];
+
+    for(let i=0;i<slideFiles.length;i++){
+      const sName=slideFiles[i];
+      const slideNum=parseInt(sName.match(/\d+/)[0]);
+      setPPTProg(40+Math.round((i/slideFiles.length)*40),`تحليل الشريحة ${slideNum} من ${slideFiles.length}...`);
+
+      // Extract text
+      const xmlStr=await zip.files[sName].async('string');
+      const doc=parser.parseFromString(xmlStr,'text/xml');
+      const textNodes=doc.querySelectorAll('t');
+      const texts=[...textNodes].map(el=>el.textContent.trim()).filter(t=>t.length>0);
+      const fullText=texts.join(' ').replace(/\s+/g,' ').trim();
+
+      // Extract images via relationships
+      const relsPath=`ppt/slides/_rels/slide${slideNum}.xml.rels`;
+      const images=[];
+      if(zip.files[relsPath]){
+        try{
+          const relsXml=await zip.files[relsPath].async('string');
+          const relsDoc=parser.parseFromString(relsXml,'text/xml');
+          const imgRels=relsDoc.querySelectorAll('Relationship[Type*="image"]');
+          for(const rel of imgRels){
+            const target=rel.getAttribute('Target')||'';
+            let imgPath=target.startsWith('../')?'ppt/'+target.slice(3):`ppt/slides/${target}`;
+            imgPath=imgPath.replace(/\/[^/]+\/\.\.\//g,'/');
+            const imgFile=zip.files[imgPath]||zip.files['ppt/media/'+target.split('/').pop()];
+            if(imgFile){
+              try{
+                const ext=(imgPath.split('.').pop()||'jpg').toLowerCase();
+                const mime=ext==='png'?'image/png':ext==='gif'?'image/gif':ext==='bmp'?'image/bmp':'image/jpeg';
+                const b64=await imgFile.async('base64');
+                images.push({src:`data:${mime};base64,${b64}`,ext,path:imgPath});
+              }catch(e){}
+            }
+          }
+        }catch(e){}
+      }
+
+      // Classify slide
+      const type=classifyPPTSlide(fullText,texts);
+      slides.push({num:slideNum,texts,fullText,images,type,raw:xmlStr});
+    }
+
+    PPT.slides=slides;
+    setPPTProg(85,'إنشاء السجلات...');
+
+    // Build records
+    PPT.records=slides.map(sl=>buildPPTRecord(sl,PPT.file.name)).filter(r=>r);
+    setPPTProg(100,'اكتمل!');
+
+    await new Promise(r=>setTimeout(r,600));
+    showPPTStep(3);
+  }catch(e){
+    console.error('PPTX analyze error:',e);
+    toast('خطأ في تحليل الملف: '+e.message,'err');
+    showPPTStep(1);
+  }
+}
+
+function classifyPPTSlide(fullText,texts){
+  const txt=(fullText||'').toLowerCase();
+  const vioScore=PPT_VIO_KEYS.filter(k=>txt.includes(k.toLowerCase())).length;
+  const evScore=PPT_EV_KEYS.filter(k=>txt.includes(k.toLowerCase())).length;
+  if(!fullText.trim())return'skip';
+  if(vioScore>evScore)return'violation';
+  if(evScore>vioScore)return'event';
+  // Default: if any text exists, treat as violation
+  return txt.length>10?'violation':'skip';
+}
+
+function buildPPTRecord(slide,fileName){
+  if(slide.type==='skip'&&!slide.fullText.trim())return null;
+  const texts=slide.texts;
+  // Try to extract fields from text patterns
+  const full=slide.fullText;
+  const getField=(labels)=>{
+    for(const l of labels){
+      const idx=texts.findIndex(t=>t.includes(l));
+      if(idx>-1&&texts[idx+1])return texts[idx+1].trim();
+      const m=full.match(new RegExp(l+'[:\\s]+([^،,\n]+)'));
+      if(m)return m[1].trim();
+    }
+    return'';
+  };
+
+  const factory=getField(['المصنع','مصنع','Factory'])||getFactories()[0]||'';
+  const area=getField(['المنطقة','منطقة','المكان'])||'';
+  const location=getField(['الموقع','موقع','Location'])||'';
+  const date=getField(['التاريخ','تاريخ','Date'])||td();
+  const time=getField(['الوقت','وقت','Time'])||tn();
+  const person=getField(['الشخص','شخص','المعني','Person'])||'';
+  const action=getField(['الإجراء','إجراء','Action','اتخذ'])||'';
+  const notes=getField(['ملاحظات','ملاحظة','Note'])||'';
+
+  // Description = all text combined (remove matched fields)
+  const desc=slide.fullText||'—';
+
+  const base={
+    _pptSlide:slide.num,_pptFile:fileName,_pptStatus:'pending',
+    _pptImages:slide.images||[],
+    date,time,factory,area,location,description:desc,
+    concernedParty:person,actionTaken:action,notes,
+    status:'جديد',images:[],
+    createdAt:new Date().toISOString()
+  };
+
+  if(slide.type==='violation'||slide.type==='skip'){
+    return{...base,_type:'violation',
+      type:getField(['نوع المخالفة','نوع','Type'])||VIO_TYPES_DEF[0]||'مخالفة سلامة',
+      severity:getField(['الخطورة','درجة الخطورة'])||'متوسطة',
+      eventId:''};
+  }else{
+    return{...base,_type:'event',
+      eventType:getField(['نوع الحدث','نوع','Type'])||EV_TYPES_DEF[0]||'حدث أمني',
+      severity:getField(['الخطورة','درجة'])||'متوسطة',
+      registeredBy:CUSER?.name||'',followUpResponsible:''};
+  }
+}
+
+function renderPPTReview(){
+  const total=PPT.records.length;
+  const facs=getFactories();
+  const vioTypes=getVioTypes();
+  const evTypes=getEvTypes();
+  const body=document.getElementById('gmod-body');
+  if(!body)return;
+
+  const stepsHTML=`<div style="display:flex;border-bottom:1px solid var(--border)">
+    ${[{n:1,l:'📂 رفع الملف'},{n:2,l:'⚙️ تحليل'},{n:3,l:'👁️ مراجعة'},{n:4,l:'✅ تأكيد'}].map(s=>`<div style="flex:1;padding:9px 4px;text-align:center;font-size:11px;font-weight:700;color:${3===s.n?'var(--blue2)':3>s.n?'var(--grn2)':'var(--muted)'};border-bottom:3px solid ${3===s.n?'var(--blue)':3>s.n?'var(--green)':'transparent'}">${3>s.n?'✓ ':''}${s.l}</div>`).join('')}
+  </div>`;
+
+  const pending=PPT.records.filter(r=>r._pptStatus==='pending').length;
+  const approved=PPT.records.filter(r=>r._pptStatus==='approved').length;
+  const rejected=PPT.records.filter(r=>r._pptStatus==='rejected').length;
+
+  body.innerHTML=`
+    ${stepsHTML}
+    <div style="padding:12px 0 8px">
+      <!-- Summary bar -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="padding:8px 14px;background:var(--bg2);border-radius:9px;border:1px solid var(--border);text-align:center;flex:1">
+          <div style="font-size:20px;font-weight:900;color:var(--blue2)">${total}</div><div style="font-size:10px;color:var(--muted)">إجمالي</div></div>
+        <div style="padding:8px 14px;background:rgba(217,119,6,.1);border-radius:9px;border:1px solid rgba(217,119,6,.3);text-align:center;flex:1">
+          <div style="font-size:20px;font-weight:900;color:var(--amb2)">${pending}</div><div style="font-size:10px;color:var(--muted)">بانتظار</div></div>
+        <div style="padding:8px 14px;background:rgba(22,163,74,.1);border-radius:9px;border:1px solid rgba(22,163,74,.3);text-align:center;flex:1">
+          <div style="font-size:20px;font-weight:900;color:var(--grn2)">${approved}</div><div style="font-size:10px;color:var(--muted)">معتمد</div></div>
+        <div style="padding:8px 14px;background:rgba(220,38,38,.1);border-radius:9px;border:1px solid rgba(220,38,38,.3);text-align:center;flex:1">
+          <div style="font-size:20px;font-weight:900;color:var(--red2)">${rejected}</div><div style="font-size:10px;color:var(--muted)">مرفوض</div></div>
+      </div>
+      <!-- Bulk actions -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn bs btn-sm" onclick="pptApproveAll()">✅ اعتماد الكل</button>
+        <button class="btn bd btn-sm" onclick="pptRejectAll()">❌ رفض الكل</button>
+        <button class="btn bg btn-sm" onclick="pptResetAll()">🔄 إعادة تعيين</button>
+        <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:auto">ملف: ${esc(PPT.file?.name||'')}</span>
+      </div>
+      <!-- Records -->
+      <div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px" id="ppt-records-list">
+        ${PPT.records.map((r,i)=>renderPPTCard(r,i,facs,vioTypes,evTypes)).join('')}
+        ${!PPT.records.length?'<div class="empty">لم يتم استخراج أي سجلات من الملف</div>':''}
+      </div>
+    </div>`;
+  document.getElementById('gmod-foot').innerHTML=`
+    <button class="btn bg" onclick="showPPTStep(1)">← رجوع</button>
+    <button class="btn bp" onclick="showPPTStep(4)" ${!PPT.records.filter(r=>r._pptStatus==='approved').length?'disabled':''}>✅ حفظ المعتمدين (${approved}) →</button>`;
+}
+
+function renderPPTCard(r,i,facs,vioTypes,evTypes){
+  const st=r._pptStatus;
+  const bg=st==='approved'?'rgba(22,163,74,.08)':st==='rejected'?'rgba(220,38,38,.05)':'var(--card)';
+  const bc=st==='approved'?'rgba(22,163,74,.4)':st==='rejected'?'rgba(220,38,38,.3)':'var(--border)';
+  const imgs=r._pptImages||[];
+  return`<div id="ppt-card-${i}" style="background:${bg};border:1px solid ${bc};border-radius:var(--r);padding:12px;transition:all .2s">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--muted);background:var(--bg2);padding:2px 8px;border-radius:5px">شريحة ${r._pptSlide}</span>
+      <span class="badge ${r._type==='violation'?'bg-a':'bg-b'}">${r._type==='violation'?'⚠️ مخالفة':'📌 حدث'}</span>
+      <span class="badge ${st==='approved'?'bg-g':st==='rejected'?'bg-r':'bg-gr'}">${st==='approved'?'✅ معتمد':st==='rejected'?'❌ مرفوض':'⏳ بانتظار'}</span>
+      <div style="margin-right:auto;display:flex;gap:4px">
+        <button class="btn bs btn-xs" onclick="pptApprove(${i})" ${st==='approved'?'style="opacity:.5"':''}>✅</button>
+        <button class="btn bd btn-xs" onclick="pptReject(${i})" ${st==='rejected'?'style="opacity:.5"':''}>❌</button>
+      </div>
+    </div>
+    <!-- Edit fields -->
+    <div class="form-row" style="margin-bottom:8px">
+      <div class="fg" style="margin-bottom:0"><label class="fl">النوع</label>
+        <select class="fc" onchange="PPT.records[${i}]._type=this.value;PPT.records[${i}].${r._type==='violation'?'type':'eventType'}=this.value">
+          <option value="violation" ${r._type==='violation'?'selected':''}>مخالفة</option>
+          <option value="event" ${r._type==='event'?'selected':''}>حدث</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-bottom:0"><label class="fl">المصنع</label>
+        <select class="fc" onchange="PPT.records[${i}].factory=this.value">
+          ${facs.map(f=>`<option ${r.factory===f?'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row" style="margin-bottom:8px">
+      <div class="fg" style="margin-bottom:0"><label class="fl">التاريخ</label>
+        <input type="date" class="fc" value="${r.date||td()}" onchange="PPT.records[${i}].date=this.value">
+      </div>
+      <div class="fg" style="margin-bottom:0"><label class="fl">الخطورة</label>
+        <select class="fc" onchange="PPT.records[${i}].severity=this.value">
+          ${SEVERITIES.map(s=>`<option ${r.severity===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label class="fl">الوصف</label>
+      <textarea class="fc" rows="2" onchange="PPT.records[${i}].description=this.value">${esc(r.description?.slice(0,300)||'')}</textarea>
+    </div>
+    <!-- Images from PowerPoint -->
+    ${imgs.length?`<div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">🖼️ صور من الشريحة (${imgs.length}):</div>
+      <div class="img-grid">
+        ${imgs.map((img,j)=>`<img src="${img.src}" class="img-th" onclick="pptViewImg('${i}',${j})" title="صورة ${j+1}">`).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--cyan);margin-top:4px">سيتم حفظها مع السجل عند الاعتماد</div>
+    </div>`:''}
+  </div>`;
+}
+
+function pptApprove(i){PPT.records[i]._pptStatus='approved';renderPPTReview();}
+function pptReject(i){PPT.records[i]._pptStatus='rejected';renderPPTReview();}
+function pptApproveAll(){PPT.records.forEach((r,i)=>{if(r._pptStatus!=='rejected')PPT.records[i]._pptStatus='approved';});renderPPTReview();}
+function pptRejectAll(){PPT.records.forEach((r,i)=>PPT.records[i]._pptStatus='rejected');renderPPTReview();}
+function pptResetAll(){PPT.records.forEach((r,i)=>PPT.records[i]._pptStatus='pending');renderPPTReview();}
+function pptViewImg(ri,ii){const imgs=PPT.records[ri]?._pptImages;if(!imgs)return;const img=imgs[ii];openModal('🖼️ معاينة الصورة',`<img src="${img.src}" style="width:100%;border-radius:8px;max-height:60vh;object-fit:contain">`);}
+
+async function pptFinalSave(){
+  const approved=PPT.records.filter(r=>r._pptStatus==='approved');
+  if(!approved.length){toast('لا توجد سجلات معتمدة للحفظ','err');showPPTStep(3);return;}
+
+  const body=document.getElementById('gmod-body');
+  if(body)body.innerHTML=`<div style="text-align:center;padding:30px">
+    <div style="font-size:48px;margin-bottom:12px">💾</div>
+    <div style="font-size:14px;font-weight:800">جاري حفظ ${approved.length} سجل...</div>
+    <div class="prog" style="max-width:240px;margin:16px auto 0"><div class="prog-f" id="ppt-save-prog" style="width:0%"></div></div>
+  </div>`;
+  document.getElementById('gmod-foot').innerHTML='';
+
+  let saved=0,viCount=0,evCount=0;
+
+  for(let i=0;i<approved.length;i++){
+    const r=approved[i];
+    const prog=document.getElementById('ppt-save-prog');
+    if(prog)prog.style.width=Math.round((i/approved.length)*100)+'%';
+
+    // Build images array from PPT images
+    const imgArr=(r._pptImages||[]).map(img=>({src:img.src,source:'pptx',file:r._pptFile,slide:r._pptSlide}));
+
+    if(r._type==='violation'){
+      const vi={
+        id:nid('VIO',DB.violations),date:r.date,time:r.time,
+        factory:r.factory,area:r.area,location:r.location,
+        type:r.type||VIO_TYPES_DEF[0],severity:r.severity,
+        status:'جديدة',description:r.description,
+        actionTaken:r.actionTaken,concernedParty:r.concernedParty,
+        followUpResponsible:'',notes:r.notes,
+        images:imgArr,timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:`استيراد من PowerPoint — الشريحة ${r._pptSlide}`,user:CUSER?.name||''}],
+        importBatchId:PPT.batchId,pptSource:{file:r._pptFile,slide:r._pptSlide},
+        createdAt:new Date().toISOString()
+      };
+      DB.violations.push(vi);sbSyncVi(vi);viCount++;
+    }else{
+      const ev={
+        id:nid('EVT',DB.events),date:r.date,time:r.time,
+        factory:r.factory,area:r.area,location:r.location,
+        eventType:r.eventType||EV_TYPES_DEF[0],severity:r.severity,
+        status:'جديد',description:r.description,
+        actionTaken:r.actionTaken,concernedParty:r.concernedParty,
+        registeredBy:CUSER?.name||'',followUpResponsible:'',
+        mainCategory:'',subCategory:'',
+        notes:r.notes,images:imgArr,
+        timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),action:`استيراد من PowerPoint — الشريحة ${r._pptSlide}`,user:CUSER?.name||''}],
+        importBatchId:PPT.batchId,pptSource:{file:r._pptFile,slide:r._pptSlide},
+        escalation:0,closedDate:'',closedTime:'',
+        createdAt:new Date().toISOString()
+      };
+      DB.events.push(ev);sbSyncEv(ev);evCount++;
+    }
+    saved++;
+    if(i%5===0)await new Promise(r=>setTimeout(r,10));
+  }
+
+  // Save batch record
+  if(!DB.importBatches)DB.importBatches=[];
+  DB.importBatches.push({
+    id:PPT.batchId,date:td(),time:tn(),user:CUSER?.name||'',
+    type:'pptx',source:PPT.file?.name||'',
+    totalRecords:PPT.records.length,successCount:saved,
+    failCount:0,duplicateCount:0,
+    violationsCount:viCount,eventsCount:evCount,
+    status:'مكتملة',createdAt:new Date().toISOString()
+  });
+
+  logAudit('استيراد PowerPoint','pptx',PPT.batchId,
+    `${PPT.file?.name} — ${viCount} مخالفة | ${evCount} حدث | ${PPT.slides.length} شريحة`);
+  saveDB();updateBadges();
+
+  // Show success
+  if(body)body.innerHTML=`<div style="text-align:center;padding:20px">
+    <div style="font-size:56px;margin-bottom:14px">🎉</div>
+    <div style="font-size:16px;font-weight:900;margin-bottom:12px">تم الاستيراد بنجاح!</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <div style="padding:12px 20px;background:rgba(217,119,6,.1);border-radius:10px;text-align:center">
+        <div style="font-size:24px;font-weight:900;color:var(--amb2)">⚠️ ${viCount}</div>
+        <div style="font-size:11px;color:var(--muted)">مخالفة</div>
+      </div>
+      <div style="padding:12px 20px;background:rgba(37,99,235,.1);border-radius:10px;text-align:center">
+        <div style="font-size:24px;font-weight:900;color:var(--blue2)">📌 ${evCount}</div>
+        <div style="font-size:11px;color:var(--muted)">حدث</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:14px">رقم العملية: ${PPT.batchId}</div>
+  </div>`;
+  document.getElementById('gmod-foot').innerHTML=`
+    <button class="btn bg" onclick="closeModal()">إغلاق</button>
+    ${viCount?`<button class="btn ba" onclick="closeModal();goTo('violations')">⚠️ عرض المخالفات</button>`:''}
+    ${evCount?`<button class="btn bp" onclick="closeModal();goTo('events')">📌 عرض الأحداث</button>`:''}`;
+
+  toast(`✅ تم استيراد ${viCount} مخالفة و ${evCount} حدث من PowerPoint`,'ok');
+}
+
+// ══════════════════════════════════════════════════
+//  IMPORT CENTER (Excel/CSV)
 
 const IMP_SCHEMA={
   violations:{label:'مخالفات',fields:{date:{label:'التاريخ',req:true,a:['التاريخ','date','تاريخ المخالفة']},factory:{label:'المصنع',req:true,a:['المصنع','مصنع','factory']},area:{label:'المنطقة',a:['المنطقة','منطقة','area']},location:{label:'الموقع',a:['الموقع','location']},type:{label:'نوع المخالفة',req:true,a:['نوع المخالفة','النوع','type','نوع']},description:{label:'الوصف',req:true,a:['الوصف','وصف','description','تفاصيل']},severity:{label:'الخطورة',a:['درجة الخطورة','severity','الخطورة']},status:{label:'الحالة',a:['الحالة','status']},notes:{label:'ملاحظات',a:['الملاحظات','ملاحظات','notes']}}},
@@ -2379,10 +2807,25 @@ function autoMatch(col,type){const c=String(col||'').trim().toLowerCase();const 
 function renderImportCenter(){
   const el=document.getElementById('page-import-center');if(!el)return;
   el.innerHTML=`<div class="sh"><div class="sh-t">📥 مركز الاستيراد الجماعي</div></div>
-  <div class="grid3" style="margin-bottom:16px">
-    ${[{ic:'⚠️',t:'استيراد مخالفات',s:'Excel/CSV/Word',tp:'violations'},{ic:'📌',t:'استيراد أحداث',s:'Excel/CSV/Word',tp:'events'},{ic:'🔍',t:'استيراد مراجعات',s:'Excel/CSV/Word',tp:'reviews'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="openImpWiz('${c.tp}','excel')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
+
+  <!-- PowerPoint Import — Featured -->
+  <div class="card" style="border:2px solid rgba(234,88,12,.4);background:rgba(234,88,12,.05);margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="font-size:48px">📊</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:900;color:var(--orange2)">استيراد من PowerPoint — جديد!</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.7">ارفع ملف .pptx ويقوم التطبيق بتحليله تلقائياً واستخراج المخالفات والأحداث من كل شريحة مع الصور</div>
+      </div>
+      <button class="btn bo" style="font-size:14px;padding:12px 20px;font-weight:900" onclick="openPPTXImport()">📊 استيراد من PowerPoint</button>
+    </div>
   </div>
-  <div class="card"><div class="ctitle" style="margin-bottom:12px">📋 قوالب Excel الجاهزة</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn bg btn-sm" onclick="dlTemplate('violations')">⬇️ قالب المخالفات</button><button class="btn bg btn-sm" onclick="dlTemplate('events')">⬇️ قالب الأحداث</button><button class="btn bg btn-sm" onclick="dlTemplate('reviews')">⬇️ قالب المراجعات</button></div><p style="font-size:11px;color:var(--muted);margin-top:10px">💡 حمّل القالب، عبّئه بالبيانات في Excel، ثم ارفعه للاستيراد التلقائي</p></div>
+
+  <!-- Excel/CSV Import -->
+  <div class="grid3" style="margin-bottom:16px">
+    ${[{ic:'⚠️',t:'استيراد مخالفات',s:'Excel/CSV',tp:'violations'},{ic:'📌',t:'استيراد أحداث',s:'Excel/CSV',tp:'events'},{ic:'🔍',t:'استيراد مراجعات',s:'Excel/CSV',tp:'reviews'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="openImpWiz('${c.tp}','excel')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
+  </div>
+
+  <div class="card"><div class="ctitle" style="margin-bottom:12px">📋 قوالب Excel الجاهزة</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn bg btn-sm" onclick="dlTemplate('violations')">⬇️ قالب المخالفات</button><button class="btn bg btn-sm" onclick="dlTemplate('events')">⬇️ قالب الأحداث</button><button class="btn bg btn-sm" onclick="dlTemplate('reviews')">⬇️ قالب المراجعات</button></div></div>
   ${_recentImportBatches()}`;
 }
 
@@ -2404,6 +2847,7 @@ function renderImportLog(){
   ${bs.length?`<div class="tw"><table><thead><tr><th>رقم العملية</th><th>التاريخ</th><th>المستخدم</th><th>النوع</th><th>إجمالي</th><th>نجح</th><th>فشل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>${bs.map(b=>`<tr><td style="color:var(--blue2);font-weight:700">${b.id}</td><td style="font-size:11px">${fmtD(b.date)} ${b.time}</td><td>${esc(b.user)}</td><td>${badge(b.type==='violations'?'مخالفات':b.type==='events'?'أحداث':'مراجعات','bg-b')}</td><td style="font-weight:700">${b.totalRecords}</td><td style="color:var(--grn2)">${b.successCount}</td><td style="color:${b.failCount>0?'var(--red2)':'var(--muted)'}">${b.failCount}</td><td>${badge(b.status,b.status==='مكتملة'?'bg-g':'bg-gr')}</td><td class="tda">${b.status==='مكتملة'?`<button class="btn bd btn-xs" onclick="undoBatch('${b.id}')">↩️ تراجع</button>`:`<span style="font-size:11px;color:var(--muted)">${b.status}</span>`}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">لا توجد عمليات استيراد</div>`}`;
 }
 
+let IW={step:1,type:null,source:null,rawHeaders:[],rawRows:[],colMap:{},records:[],valid:[],errors:[],dups:[],selected:new Set(),batchId:null};
 function openImpWiz(type,source){
   IW={step:1,type,source,rawHeaders:[],rawRows:[],colMap:{},records:[],valid:[],errors:[],dups:[],selected:new Set(),batchId:'IMP-'+new Date().getFullYear()+'-'+String((DB.importBatches||[]).length+1).padStart(6,'0')};
   document.getElementById('imp-wiz-ov').classList.add('open');
@@ -3405,60 +3849,16 @@ async function sbFetch(table,map){if(!sbReady||!sb)return null;try{const{data,er
 
 async function initSupabase(){
   setSyncStatus('syncing');
-  // Multiple CDN fallbacks
-  const CDNS=[
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/supabase.min.js',
-    'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js',
-  ];
-  // Try loading from each CDN
-  async function tryLoadLib(url){
-    return new Promise((res,rej)=>{
+  try{
+    await new Promise((res,rej)=>{
       if(window.supabase){res();return;}
       const s=document.createElement('script');
-      s.src=url;
-      const timer=setTimeout(()=>{s.remove();rej(new Error('timeout'));},8000);
-      s.onload=()=>{clearTimeout(timer);res();};
-      s.onerror=()=>{clearTimeout(timer);s.remove();rej(new Error('load failed'));};
-      document.body.appendChild(s);
+      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      s.onload=res;s.onerror=rej;document.body.appendChild(s);
     });
-  }
-  let loaded=false;
-  for(const cdn of CDNS){
-    try{
-      await tryLoadLib(cdn);
-      loaded=true;
-      console.log('✅ Supabase loaded from:',cdn);
-      break;
-    }catch(e){
-      console.warn('CDN failed:',cdn,e.message);
-    }
-  }
-  if(!loaded||!window.supabase){
-    setSyncStatus('offline');
-    toast('❌ تعذّر تحميل مكتبة Supabase — تأكد من الإنترنت أو جرّب شبكة مختلفة','err');
-    return false;
-  }
-  try{
-    sb=window.supabase.createClient(SB_URL,SB_KEY,{
-      realtime:{timeout:30000},
-      global:{fetch:(...args)=>fetch(...args)}
-    });
-    // Test connection
-    const{error}=await sb.from('events').select('id').limit(1);
-    if(error&&error.code!=='PGRST116'){
-      console.warn('Supabase test query warning:',error.message);
-    }
-    sbReady=true;
-    setSyncStatus('connected');
-    console.log('✅ Supabase connected');
-    return true;
-  }catch(e){
-    console.error('Supabase init error:',e);
-    setSyncStatus('offline');
-    toast('❌ خطأ في الاتصال: '+e.message,'err');
-    return false;
-  }
+    sb=window.supabase.createClient(SB_URL,SB_KEY);
+    sbReady=true;return true;
+  }catch(e){setSyncStatus('offline');return false;}
 }
 
 async function loadFromSupabase(){
@@ -3548,39 +3948,21 @@ async function checkSupabaseConnection(){
 }
 
 function openSyncPanel(){
-  const hasDelPw=!!DB.settings?.deletePasswordHash;
   openModal('☁️ لوحة التزامن — Supabase',`
-  <div style="text-align:center;margin-bottom:16px">
-    <div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:2px solid ${sbReady?'rgba(22,163,74,.4)':'rgba(220,38,38,.4)'}">
-      ${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل بـ Supabase'}
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:6px">vyacbrgqtarezbwdsjpz.supabase.co</div>
-    ${!sbReady?`<div style="margin-top:8px;padding:8px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.7">
-      <strong style="color:var(--red2)">أسباب محتملة:</strong><br>
-      • الإنترنت غير متاح أو بطيء<br>
-      • CDN محجوب — جرّب VPN أو شبكة مختلفة<br>
-      • اضغط "إعادة الاتصال" للمحاولة مجدداً
-    </div>`:''}
-  </div>
+  <div style="text-align:center;margin-bottom:16px"><div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border)">${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل'}</div><div style="font-size:11px;color:var(--muted);margin-top:6px">vyacbrgqtarezbwdsjpz.supabase.co</div></div>
   <div class="stats-grid" style="margin-bottom:16px">
     ${[['📌',DB.events.length,'أحداث'],['⚠️',DB.violations.length,'مخالفات'],['🔍',DB.reviews.length,'مراجعات'],['📋',DB.tasks.length,'مهام']].map(([ic,n,l])=>`<div class="sc"><div class="sc-n" style="color:var(--blue2)">${ic} ${n}</div><div class="sc-l">${l}</div></div>`).join('')}
   </div>
-  <div style="display:flex;flex-direction:column;gap:8px">
-    ${sbReady?`
-    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center;padding:12px">⬆️ رفع بياناتي إلى السحابة</button>
-    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center;padding:12px">⬇️ جلب أحدث البيانات من السحابة</button>
-    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">🔌 اختبار الاتصال</button>`:`
-    <button class="btn bp" onclick="document.getElementById('sp-status').textContent='⏳ جاري الاتصال...';initSupabase().then(ok=>{if(ok){setupRealtime();pullFromSupabase();closeModal();setTimeout(openSyncPanel,300);}else{document.getElementById('sp-status').textContent='❌ فشل الاتصال — جرب مرة أخرى';}})" style="justify-content:center;padding:12px;font-size:14px">
-      🔄 إعادة الاتصال الآن
-    </button>
-    <div style="font-size:11px;color:var(--muted);text-align:center;padding:6px">أو جرّب:</div>
-    <button class="btn bg" onclick="window.open('https://vyacbrgqtarezbwdsjpz.supabase.co','_blank')" style="justify-content:center;color:var(--cyan)">🌐 فتح Supabase في المتصفح</button>`}
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center">⬆️ رفع بياناتي إلى السحابة</button>
+    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center">⬇️ جلب أحدث البيانات من السحابة</button>
+    <button class="btn bg" onclick="initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase())" style="justify-content:center">🔄 إعادة الاتصال</button>
+    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">🔌 اختبار الاتصال</button>
     <button class="btn bg" onclick="forceUpdateNow()" style="justify-content:center;color:var(--amber2);border-color:var(--amber)">⚡ فرض التحديث الآن</button>
   </div>
-  <div style="margin-top:12px;padding:10px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.8">
-    💡 <strong>التزامن التلقائي:</strong> أي تعديل يظهر فوراً على باقي الأجهزة المتصلة<br>
-    📴 <strong>بدون إنترنت:</strong> البيانات تُحفظ محلياً وترتفع تلقائياً لما تتصل<br>
-    🔐 <strong>حماية الحذف:</strong> ${hasDelPw?'✅ مفعّلة':'❌ غير مُعيَّنة — اذهب للإعدادات'}
+  <div style="margin-top:14px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.7">
+    💡 التزامن التلقائي: أي تعديل يظهر فوراً على باقي الأجهزة<br>
+    📴 بدون إنترنت: البيانات تُحفظ محلياً وترتفع لما تتصل
   </div>`);
 }
 
