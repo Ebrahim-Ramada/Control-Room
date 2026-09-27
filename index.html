@@ -14,6 +14,25 @@
 <link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22%D9%86%D8%B8%D8%A7%D9%85%20%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22short_name%22%3A%22%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23060c1a%22%2C%22theme_color%22%3A%22%23060c1a%22%2C%22orientation%22%3A%22any%22%2C%22lang%22%3A%22ar%22%2C%22dir%22%3A%22rtl%22%7D">
 <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMDYwYzFhIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMjgwIj7wn4+9PC90ZXh0Pjwvc3ZnPg==">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://vyacbrgqtarezbwdsjpz.supabase.co">
+<script>
+// Pre-load Supabase ASAP with CDN fallback
+(function(){
+  const urls=[
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/supabase.min.js',
+    'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'
+  ];
+  function tryLoad(i){
+    if(i>=urls.length||window.supabase)return;
+    const s=document.createElement('script');s.src=urls[i];s.async=true;
+    s.onload=()=>{window._sbPreloaded=true;};
+    s.onerror=()=>{s.remove();setTimeout(()=>tryLoad(i+1),300);};
+    document.head.appendChild(s);
+  }
+  tryLoad(0);
+})();
+</script>
 <style>
 /* ═══════════════════════════════════════════════════
    DESIGN SYSTEM — ONE APP — ALL DEVICES
@@ -3386,16 +3405,60 @@ async function sbFetch(table,map){if(!sbReady||!sb)return null;try{const{data,er
 
 async function initSupabase(){
   setSyncStatus('syncing');
-  try{
-    await new Promise((res,rej)=>{
+  // Multiple CDN fallbacks
+  const CDNS=[
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/supabase.min.js',
+    'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+  ];
+  // Try loading from each CDN
+  async function tryLoadLib(url){
+    return new Promise((res,rej)=>{
       if(window.supabase){res();return;}
       const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      s.onload=res;s.onerror=rej;document.body.appendChild(s);
+      s.src=url;
+      const timer=setTimeout(()=>{s.remove();rej(new Error('timeout'));},8000);
+      s.onload=()=>{clearTimeout(timer);res();};
+      s.onerror=()=>{clearTimeout(timer);s.remove();rej(new Error('load failed'));};
+      document.body.appendChild(s);
     });
-    sb=window.supabase.createClient(SB_URL,SB_KEY);
-    sbReady=true;return true;
-  }catch(e){setSyncStatus('offline');return false;}
+  }
+  let loaded=false;
+  for(const cdn of CDNS){
+    try{
+      await tryLoadLib(cdn);
+      loaded=true;
+      console.log('✅ Supabase loaded from:',cdn);
+      break;
+    }catch(e){
+      console.warn('CDN failed:',cdn,e.message);
+    }
+  }
+  if(!loaded||!window.supabase){
+    setSyncStatus('offline');
+    toast('❌ تعذّر تحميل مكتبة Supabase — تأكد من الإنترنت أو جرّب شبكة مختلفة','err');
+    return false;
+  }
+  try{
+    sb=window.supabase.createClient(SB_URL,SB_KEY,{
+      realtime:{timeout:30000},
+      global:{fetch:(...args)=>fetch(...args)}
+    });
+    // Test connection
+    const{error}=await sb.from('events').select('id').limit(1);
+    if(error&&error.code!=='PGRST116'){
+      console.warn('Supabase test query warning:',error.message);
+    }
+    sbReady=true;
+    setSyncStatus('connected');
+    console.log('✅ Supabase connected');
+    return true;
+  }catch(e){
+    console.error('Supabase init error:',e);
+    setSyncStatus('offline');
+    toast('❌ خطأ في الاتصال: '+e.message,'err');
+    return false;
+  }
 }
 
 async function loadFromSupabase(){
@@ -3485,21 +3548,39 @@ async function checkSupabaseConnection(){
 }
 
 function openSyncPanel(){
+  const hasDelPw=!!DB.settings?.deletePasswordHash;
   openModal('☁️ لوحة التزامن — Supabase',`
-  <div style="text-align:center;margin-bottom:16px"><div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border)">${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل'}</div><div style="font-size:11px;color:var(--muted);margin-top:6px">vyacbrgqtarezbwdsjpz.supabase.co</div></div>
+  <div style="text-align:center;margin-bottom:16px">
+    <div id="sp-status" style="font-size:15px;font-weight:800;padding:12px;border-radius:10px;background:var(--bg2);border:2px solid ${sbReady?'rgba(22,163,74,.4)':'rgba(220,38,38,.4)'}">
+      ${sbReady?'☁️ متصل بـ Supabase':'📴 غير متصل بـ Supabase'}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">vyacbrgqtarezbwdsjpz.supabase.co</div>
+    ${!sbReady?`<div style="margin-top:8px;padding:8px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.7">
+      <strong style="color:var(--red2)">أسباب محتملة:</strong><br>
+      • الإنترنت غير متاح أو بطيء<br>
+      • CDN محجوب — جرّب VPN أو شبكة مختلفة<br>
+      • اضغط "إعادة الاتصال" للمحاولة مجدداً
+    </div>`:''}
+  </div>
   <div class="stats-grid" style="margin-bottom:16px">
     ${[['📌',DB.events.length,'أحداث'],['⚠️',DB.violations.length,'مخالفات'],['🔍',DB.reviews.length,'مراجعات'],['📋',DB.tasks.length,'مهام']].map(([ic,n,l])=>`<div class="sc"><div class="sc-n" style="color:var(--blue2)">${ic} ${n}</div><div class="sc-l">${l}</div></div>`).join('')}
   </div>
-  <div style="display:flex;flex-direction:column;gap:10px">
-    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center">⬆️ رفع بياناتي إلى السحابة</button>
-    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center">⬇️ جلب أحدث البيانات من السحابة</button>
-    <button class="btn bg" onclick="initSupabase().then(()=>setupRealtime()).then(()=>pullFromSupabase())" style="justify-content:center">🔄 إعادة الاتصال</button>
-    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">🔌 اختبار الاتصال</button>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    ${sbReady?`
+    <button class="btn bp" onclick="fullSyncToSupabase()" style="justify-content:center;padding:12px">⬆️ رفع بياناتي إلى السحابة</button>
+    <button class="btn bc" onclick="pullFromSupabase()" style="justify-content:center;padding:12px">⬇️ جلب أحدث البيانات من السحابة</button>
+    <button class="btn bg" onclick="checkSupabaseConnection()" style="justify-content:center;color:var(--cyan);border-color:var(--cyan)">🔌 اختبار الاتصال</button>`:`
+    <button class="btn bp" onclick="document.getElementById('sp-status').textContent='⏳ جاري الاتصال...';initSupabase().then(ok=>{if(ok){setupRealtime();pullFromSupabase();closeModal();setTimeout(openSyncPanel,300);}else{document.getElementById('sp-status').textContent='❌ فشل الاتصال — جرب مرة أخرى';}})" style="justify-content:center;padding:12px;font-size:14px">
+      🔄 إعادة الاتصال الآن
+    </button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;padding:6px">أو جرّب:</div>
+    <button class="btn bg" onclick="window.open('https://vyacbrgqtarezbwdsjpz.supabase.co','_blank')" style="justify-content:center;color:var(--cyan)">🌐 فتح Supabase في المتصفح</button>`}
     <button class="btn bg" onclick="forceUpdateNow()" style="justify-content:center;color:var(--amber2);border-color:var(--amber)">⚡ فرض التحديث الآن</button>
   </div>
-  <div style="margin-top:14px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.3);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.7">
-    💡 التزامن التلقائي: أي تعديل يظهر فوراً على باقي الأجهزة<br>
-    📴 بدون إنترنت: البيانات تُحفظ محلياً وترتفع لما تتصل
+  <div style="margin-top:12px;padding:10px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.8">
+    💡 <strong>التزامن التلقائي:</strong> أي تعديل يظهر فوراً على باقي الأجهزة المتصلة<br>
+    📴 <strong>بدون إنترنت:</strong> البيانات تُحفظ محلياً وترتفع تلقائياً لما تتصل<br>
+    🔐 <strong>حماية الحذف:</strong> ${hasDelPw?'✅ مفعّلة':'❌ غير مُعيَّنة — اذهب للإعدادات'}
   </div>`);
 }
 
