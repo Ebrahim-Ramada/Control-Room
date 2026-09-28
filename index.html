@@ -410,7 +410,11 @@ body.light #loader{background:var(--bg)}
       <div class="tb-title" id="tb-title">📊 لوحة التحكم</div>
     </div>
     <div class="tb-r">
-      <div id="sync-status" title="حالة التزامن" style="font-size:11px;padding:4px 9px;border-radius:6px;background:var(--card);border:1px solid var(--border);cursor:pointer;white-space:nowrap" onclick="openSyncPanel()">⏳ جاري الاتصال...</div>
+      <div id="rt-notify" onclick="this.style.display='none'" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#1e40af,#1d4ed8);color:#fff;padding:8px 16px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:8px">
+  <span id="rt-notify-txt"></span>
+  <button onclick="pullFromSupabase();this.closest('#rt-notify').style.display='none'" style="background:#fff;color:#1e40af;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer">تحديث الآن</button>
+</div>
+<div id="sync-status" title="حالة التزامن" style="font-size:11px;padding:4px 9px;border-radius:6px;background:var(--card);border:1px solid var(--border);cursor:pointer;white-space:nowrap" onclick="openSyncPanel()">⏳ جاري الاتصال...</div>
       <div id="tb-dt" style="font-size:11px;color:var(--muted);display:none;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:5px 10px;white-space:nowrap"></div>
       <button class="btn bg btn-sm no-print" onclick="window.print()" title="طباعة">🖨️</button>
       <button id="theme-btn" onclick="toggleTheme()" title="الوضع" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center">🌙</button>
@@ -1567,9 +1571,15 @@ function saveEvent(id=''){
   }
   saveDB();closeModal();updateBadges();runSLA();
   const evId2=id||(DB.events[DB.events.length-1]?.id)||'';
-  { const _ev=DB.events.find(e=>e.id===evId2); if(_ev) sbSyncEv(_ev); } // 🔧 إصلاح: مزامنة الحدث مع Supabase (كانت ناقصة)
+  const _ev=DB.events.find(e=>e.id===evId2);
+  if(_ev){
+    sbSyncEv(_ev).then(ok=>{
+      if(ok)setSyncStatus('connected');
+      else toast('⚠️ تم الحفظ محلياً — الرفع للسحابة سيتم لاحقاً','warn');
+    }).catch(()=>{});
+  }
   if(id){toast('تم حفظ التعديلات ✅','ok');trackAction('تعديل','حدث',id,'تعديل الحدث '+id,'events');}
-  else{trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
+  else{toast('تم تسجيل الحدث '+evId2+' ✅','ok');trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
 }
 
 function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);logAudit('حذف','حدث',id,'');sbSyncEv({id},true);/* 🔧 إصلاح: مزامنة الحذف مع Supabase */saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
@@ -2347,590 +2357,6 @@ function renderReportCenter(){
 // ══════════════════════════════════════════════════
 //  IMPORT CENTER
 // ══════════════════════════════════════════════════
-// ══════════════════════════════════════════════════
-//  📊 PPTX IMPORT — قراءة الجداول صفًا بصف
-// ══════════════════════════════════════════════════
-let PPT={file:null,records:[],unlinkedImgs:[],batchId:'',step:1};
-
-// Column name → field mapping
-const PPT_COL_MAP={
-  '#':'originalNum','م':'originalNum','رقم':'originalNum','رقم المخالفة':'originalNum',
-  'التاريخ':'date','تاريخ':'date','التاريخ/الوقت':'date',
-  'المصنع':'factory','مصنع':'factory','الموقع':'factory',
-  'نوع المخالفة':'type','النوع':'type','المخالفة':'type','نوع':'type','الفئة':'type',
-  'الوصف':'description','الهدف':'description','وصف المخالفة':'description','الواقعة':'description',
-  'الإجراء المتخذ':'actionTaken','الإجراء':'actionTaken','إجراء':'actionTaken',
-  'الملاحظات':'notes','ملاحظات':'notes','ملاحظة':'notes',
-  'المتابعة':'followUp','المتابعة والإقالة':'followUp','المتابعة والإجراء':'followUp',
-  'الجهة':'concernedParty','المعني':'concernedParty','الشخص':'concernedParty','الجهة المختصة':'concernedParty',
-  'الحالة':'status','حالة':'status',
-  'الخطورة':'severity','درجة الخطورة':'severity','درجة':'severity',
-};
-
-function matchColName(name){
-  const n=name.trim();
-  if(!n)return null;
-  // Exact match
-  for(const[k,v]of Object.entries(PPT_COL_MAP)){if(k===n)return v;}
-  // Contains match
-  for(const[k,v]of Object.entries(PPT_COL_MAP)){if(n.includes(k)||k.includes(n))return v;}
-  return null;
-}
-
-// Load JSZip
-function loadJSZip(){
-  return new Promise((res,rej)=>{
-    if(window.JSZip){res();return;}
-    const urls=['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js','https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'];
-    let i=0;
-    function tryNext(){
-      if(i>=urls.length){rej(new Error('JSZip unavailable'));return;}
-      const s=document.createElement('script');s.src=urls[i++];
-      s.onload=res;s.onerror=()=>{s.remove();tryNext();};
-      document.body.appendChild(s);
-    }
-    tryNext();
-  });
-}
-
-// ── Extract text from XML cell ──
-function getCellText(tc){
-  return[...tc.querySelectorAll('t')].map(t=>t.textContent).join('').trim();
-}
-
-// ── Parse tables from slide XML ──
-function parseSliceTables(xmlStr,slideNum,fileName,imgMap){
-  const parser=new DOMParser();
-  const doc=parser.parseFromString(xmlStr,'text/xml');
-  const tables=doc.querySelectorAll('tbl');
-  const violations=[];
-
-  tables.forEach(tbl=>{
-    const rows=[...tbl.querySelectorAll('tr')];
-    if(rows.length<2)return;
-
-    // Find header row (first row with text)
-    let hdrIdx=0;
-    for(let i=0;i<Math.min(3,rows.length);i++){
-      const cells=[...rows[i].querySelectorAll('tc')];
-      if(cells.some(c=>getCellText(c).length>0)){hdrIdx=i;break;}
-    }
-
-    // Extract headers
-    const headers=[...rows[hdrIdx].querySelectorAll('tc')].map(getCellText);
-    if(!headers.some(h=>h.length>0))return;
-
-    // Build column index map
-    const colMap={};
-    headers.forEach((h,i)=>{const f=matchColName(h);if(f)colMap[i]=f;});
-
-    // Extract data rows
-    for(let ri=hdrIdx+1;ri<rows.length;ri++){
-      const cells=[...rows[ri].querySelectorAll('tc')].map(getCellText);
-      if(!cells.some(c=>c.length>0))continue; // skip empty rows
-
-      // Build violation object from row
-      const rec={
-        _pptSlide:slideNum,_pptFile:fileName,_pptRow:ri-hdrIdx,
-        _pptStatus:'pending',_headers:headers,_cells:cells,
-        _pptImages:[],
-        date:'',time:'',factory:'',area:'',location:'',
-        type:'',severity:'متوسطة',status:'جديدة',
-        description:'',actionTaken:'',concernedParty:'',
-        notes:'',followUp:'',originalNum:'',
-      };
-
-      // Map cells to fields
-      cells.forEach((val,ci)=>{
-        const field=colMap[ci];
-        if(field&&val){
-          if(field==='date'){rec.date=normalizeDateAr(val);}
-          else if(field==='severity'){rec.severity=normalizeSeverity(val);}
-          else if(field==='status'){rec.status=val;}
-          else{rec[field]=val;}
-        }
-      });
-
-      // If description is empty, combine all unmapped cells
-      if(!rec.description){
-        const mapped=new Set(Object.values(colMap));
-        const unmapped=cells.filter((_,ci)=>!colMap[ci]&&cells[ci]).join(' | ');
-        if(unmapped)rec.description=unmapped;
-      }
-
-      // Default date
-      if(!rec.date)rec.date=td();
-      if(!rec.time)rec.time=tn();
-
-      // Mark needs review if key fields missing
-      rec._needsReview=!rec.type&&!rec.description;
-
-      violations.push(rec);
-    }
-  });
-
-  return violations;
-}
-
-// Normalize Arabic date formats
-function normalizeDateAr(s){
-  if(!s)return'';
-  // Try to parse common formats: DD/MM/YYYY, YYYY-MM-DD, D/M/YYYY
-  const m=s.match(/(\d{1,4})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
-  if(!m)return s;
-  let[,a,b,c]=m;
-  // Detect format
-  if(a.length===4)return`${a}-${b.padStart(2,'0')}-${c.padStart(2,'0')}`;
-  if(parseInt(c)<100)c='20'+c;
-  return`${c}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`;
-}
-
-// Normalize severity
-function normalizeSeverity(s){
-  const txt=(s||'').trim();
-  if(txt.includes('حرج')||txt.includes('خطير')||txt.includes('شديد'))return'حرجة';
-  if(txt.includes('عال')||txt.includes('عالي')||txt.includes('كبير'))return'عالية';
-  if(txt.includes('منخفض')||txt.includes('بسيط')||txt.includes('صغير'))return'منخفضة';
-  return'متوسطة';
-}
-
-// Duplicate check
-function checkPPTDuplicate(rec){
-  return DB.violations.some(v=>
-    (v.date===rec.date&&v.factory===rec.factory&&v.type===rec.type&&rec.type)||
-    (v.description&&rec.description&&v.description===rec.description&&v.date===rec.date)
-  );
-}
-
-// ── MAIN: Open PPTX Import ──
-function openPPTXImport(){
-  PPT={file:null,records:[],unlinkedImgs:[],batchId:'IMP-PPT-'+Date.now(),step:1};
-  pptShowStep(1);
-}
-
-function pptShowStep(step){
-  PPT.step=step;
-  const STEPS=['📂 رفع الملف','⚙️ تحليل','📋 مراجعة','✅ حفظ'];
-  const stepsBar=`<div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:0">
-    ${STEPS.map((l,i)=>{const n=i+1;return`<div style="flex:1;padding:9px 4px;text-align:center;font-size:11px;font-weight:700;color:${step===n?'var(--blue2)':step>n?'var(--grn2)':'var(--muted)'};border-bottom:3px solid ${step===n?'var(--blue)':step>n?'var(--green)':'transparent'}">${step>n?'✓ ':''}${l}</div>`;}).join('')}
-  </div>`;
-
-  if(step===1){
-    openModal('📊 استيراد مخالفات من PowerPoint',`${stepsBar}
-    <div style="padding:14px 0">
-      <div class="drop-z" id="ppt-drop" onclick="document.getElementById('ppt-fi').click()" style="min-height:150px;margin-bottom:12px">
-        <input type="file" id="ppt-fi" accept=".pptx" style="display:none" onchange="pptFileChosen(this)">
-        <div style="font-size:44px;margin-bottom:10px">📊</div>
-        <div style="font-size:14px;font-weight:700">اسحب ملف .pptx أو اضغط للاختيار</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">يدعم ملفات PowerPoint (.pptx) فقط</div>
-      </div>
-      <div id="ppt-finfo" style="display:none;padding:10px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:9px;font-size:12px;color:var(--grn2);margin-bottom:10px"></div>
-      <div style="padding:10px;background:var(--bg2);border-radius:9px;font-size:11px;color:var(--muted);line-height:1.8">
-        📌 كيف يعمل:<br>
-        • يقرأ الجداول الموجودة في كل شريحة<br>
-        • كل صف في الجدول = مخالفة مستقلة<br>
-        • يتعرف على الأعمدة من العناوين تلقائياً<br>
-        • يعرض لك مراجعة كاملة قبل الحفظ
-      </div>
-    </div>`,[{label:'تحليل الملف ←',cls:'bp',fn:'pptStartAnalyze()'}]);
-    // Drag drop
-    setTimeout(()=>{
-      const d=document.getElementById('ppt-drop');
-      d?.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('drag');});
-      d?.addEventListener('dragleave',()=>d?.classList.remove('drag'));
-      d?.addEventListener('drop',e=>{
-        e.preventDefault();d?.classList.remove('drag');
-        const f=e.dataTransfer.files[0];
-        if(f?.name.endsWith('.pptx')){
-          const dt=new DataTransfer();dt.items.add(f);
-          const fi=document.getElementById('ppt-fi');fi.files=dt.files;pptFileChosen(fi);
-        }else toast('يجب رفع ملف .pptx','err');
-      });
-    },200);
-  }
-  else if(step===2){
-    const body=document.getElementById('gmod-body');
-    const foot=document.getElementById('gmod-foot');
-    if(body)body.innerHTML=`${stepsBar}
-    <div style="text-align:center;padding:30px 20px">
-      <div style="font-size:44px;margin-bottom:14px">⚙️</div>
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">جاري تحليل الملف...</div>
-      <div id="ppt-ptxt" style="font-size:12px;color:var(--muted);margin-bottom:12px">تحميل المكتبة...</div>
-      <div class="prog" style="max-width:260px;margin:0 auto"><div class="prog-f" id="ppt-pbar" style="width:0%;background:var(--orange)"></div></div>
-      <div id="ppt-ppct" style="font-size:13px;font-weight:700;color:var(--org2);margin-top:8px">0%</div>
-    </div>`;
-    if(foot)foot.innerHTML='';
-    pptDoAnalyze();
-  }
-  else if(step===3){pptRenderReview();}
-  else if(step===4){pptFinalSave();}
-}
-
-function pptFileChosen(input){
-  const f=input.files[0];
-  if(!f||!f.name.endsWith('.pptx')){toast('يجب رفع ملف .pptx','err');return;}
-  PPT.file=f;
-  const info=document.getElementById('ppt-finfo');
-  if(info){info.style.display='block';info.innerHTML=`✅ <strong>${esc(f.name)}</strong> — ${(f.size/1024).toFixed(0)} KB`;}
-}
-
-function pptStartAnalyze(){
-  if(!PPT.file){toast('يرجى اختيار ملف .pptx أولاً','err');return;}
-  pptShowStep(2);
-}
-
-function pptSetProg(pct,txt){
-  const b=document.getElementById('ppt-pbar');const t=document.getElementById('ppt-ptxt');const n=document.getElementById('ppt-ppct');
-  if(b)b.style.width=pct+'%';if(t)t.textContent=txt;if(n)n.textContent=pct+'%';
-}
-
-async function pptDoAnalyze(){
-  try{
-    pptSetProg(10,'تحميل JSZip...');
-    await loadJSZip();
-    pptSetProg(25,'قراءة الملف...');
-
-    const zip=await JSZip.loadAsync(PPT.file);
-    pptSetProg(40,'البحث عن الشرائح...');
-
-    const slideFiles=Object.keys(zip.files)
-      .filter(n=>n.match(/^ppt\/slides\/slide\d+\.xml$/))
-      .sort((a,b)=>parseInt(a.match(/\d+/)[0])-parseInt(b.match(/\d+/)[0]));
-
-    if(!slideFiles.length){toast('لم يتم العثور على شرائح في الملف','err');pptShowStep(1);return;}
-
-    // Extract images from media folder
-    const imgMap={};
-    const mediaFiles=Object.keys(zip.files).filter(n=>n.startsWith('ppt/media/'));
-    for(const mf of mediaFiles){
-      try{
-        const ext=(mf.split('.').pop()||'jpg').toLowerCase();
-        const mime=ext==='png'?'image/png':ext==='gif'?'image/gif':'image/jpeg';
-        const b64=await zip.files[mf].async('base64');
-        imgMap[mf]={src:`data:${mime};base64,${b64}`,ext};
-      }catch(e){}
-    }
-
-    const allRecords=[];
-    const parser=new DOMParser();
-
-    for(let si=0;si<slideFiles.length;si++){
-      const sName=slideFiles[si];
-      const slideNum=parseInt(sName.match(/\d+/)[0]);
-      pptSetProg(40+Math.round((si/slideFiles.length)*50),`تحليل الشريحة ${slideNum}/${slideFiles.length}...`);
-
-      const xmlStr=await zip.files[sName].async('string');
-
-      // Extract images for this slide via rels
-      const slideImgs=[];
-      const relsPath=`ppt/slides/_rels/slide${slideNum}.xml.rels`;
-      if(zip.files[relsPath]){
-        try{
-          const relsXml=await zip.files[relsPath].async('string');
-          const rDoc=parser.parseFromString(relsXml,'text/xml');
-          const imgRels=[...rDoc.querySelectorAll('Relationship[Type*="image"]')];
-          for(const rel of imgRels){
-            const tgt=rel.getAttribute('Target')||'';
-            let imgPath=tgt.startsWith('../')?'ppt/'+tgt.slice(3):`ppt/slides/${tgt}`;
-            imgPath=imgPath.replace(/\/[^/]+\/\.\.\//g,'/');
-            const imgKey=Object.keys(imgMap).find(k=>k===imgPath||k.endsWith('/'+tgt.split('/').pop()));
-            if(imgKey)slideImgs.push(imgMap[imgKey]);
-          }
-        }catch(e){}
-      }
-
-      // Parse tables from this slide
-      const viols=parseSliceTables(xmlStr,slideNum,PPT.file.name,imgMap);
-
-      // Attach slide images to records (distribute evenly if multiple)
-      if(slideImgs.length&&viols.length){
-        if(slideImgs.length===viols.length){
-          viols.forEach((v,i)=>v._pptImages=[slideImgs[i]]);
-        }else if(slideImgs.length===1){
-          viols.forEach(v=>v._pptImages=[...slideImgs]);
-        }else{
-          // All images go to first violation + mark unlinked
-          viols[0]._pptImages=[...slideImgs];
-          PPT.unlinkedImgs.push(...slideImgs.slice(viols.length));
-        }
-      }
-
-      // Check duplicates
-      viols.forEach(v=>{v._isDuplicate=checkPPTDuplicate(v);});
-      allRecords.push(...viols);
-    }
-
-    pptSetProg(95,'إنهاء...');
-    PPT.records=allRecords;
-
-    if(!allRecords.length){
-      toast('⚠️ لم يتم العثور على جداول في الملف — تأكد أن الملف يحتوي على جداول وليس مجرد نص','warn');
-      pptShowStep(1);return;
-    }
-
-    pptSetProg(100,'اكتمل!');
-    await new Promise(r=>setTimeout(r,500));
-    pptShowStep(3);
-  }catch(e){
-    console.error('PPTX error:',e);
-    toast('خطأ في تحليل الملف: '+e.message,'err');
-    pptShowStep(1);
-  }
-}
-
-// ── Review Screen ──
-function pptRenderReview(){
-  const body=document.getElementById('gmod-body');
-  const foot=document.getElementById('gmod-foot');
-  if(!body)return;
-
-  const total=PPT.records.length;
-  const pending=PPT.records.filter(r=>r._pptStatus==='pending').length;
-  const approved=PPT.records.filter(r=>r._pptStatus==='approved').length;
-  const excluded=PPT.records.filter(r=>r._pptStatus==='excluded').length;
-  const needsRev=PPT.records.filter(r=>r._needsReview&&r._pptStatus==='pending').length;
-  const dups=PPT.records.filter(r=>r._isDuplicate).length;
-
-  const STEPS=['📂 رفع الملف','⚙️ تحليل','📋 مراجعة','✅ حفظ'];
-  const stepsBar=`<div style="display:flex;border-bottom:1px solid var(--border)">
-    ${STEPS.map((l,i)=>{const n=i+1;return`<div style="flex:1;padding:9px 4px;text-align:center;font-size:11px;font-weight:700;color:${3===n?'var(--blue2)':3>n?'var(--grn2)':'var(--muted)'};border-bottom:3px solid ${3===n?'var(--blue)':3>n?'var(--green)':'transparent'}">${3>n?'✓ ':''}${l}</div>`;}).join('')}
-  </div>`;
-
-  body.innerHTML=`${stepsBar}
-  <div style="padding:10px 0 6px">
-    <!-- File info -->
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">📥 <strong>${esc(PPT.file?.name||'')}</strong></div>
-    <!-- Stats -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <div style="padding:6px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);text-align:center;flex:1;min-width:60px"><div style="font-size:18px;font-weight:900;color:var(--blue2)">${total}</div><div style="font-size:10px;color:var(--muted)">إجمالي</div></div>
-      <div style="padding:6px 12px;background:rgba(217,119,6,.1);border-radius:8px;border:1px solid rgba(217,119,6,.3);text-align:center;flex:1;min-width:60px"><div style="font-size:18px;font-weight:900;color:var(--amb2)">${needsRev}</div><div style="font-size:10px;color:var(--muted)">⚠️ مراجعة</div></div>
-      <div style="padding:6px 12px;background:rgba(22,163,74,.1);border-radius:8px;border:1px solid rgba(22,163,74,.3);text-align:center;flex:1;min-width:60px"><div style="font-size:18px;font-weight:900;color:var(--grn2)">${approved}</div><div style="font-size:10px;color:var(--muted)">✅ معتمد</div></div>
-      <div style="padding:6px 12px;background:rgba(220,38,38,.1);border-radius:8px;border:1px solid rgba(220,38,38,.3);text-align:center;flex:1;min-width:60px"><div style="font-size:18px;font-weight:900;color:var(--red2)">${excluded}</div><div style="font-size:10px;color:var(--muted)">❌ مستبعد</div></div>
-    </div>
-    ${dups?`<div style="padding:8px;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.3);border-radius:8px;font-size:11px;color:var(--amb2);margin-bottom:8px">⚠️ ${dups} مخالفة قد تكون مكررة — راجعها قبل الاعتماد</div>`:''}
-    <!-- Bulk actions -->
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
-      <button class="btn bs btn-xs" onclick="pptApproveAll()">✅ اعتماد الكل</button>
-      <button class="btn bd btn-xs" onclick="pptExcludeAll()">❌ استبعاد الكل</button>
-      <button class="btn bg btn-xs" onclick="pptResetAll()">🔄 إعادة تعيين</button>
-      <button class="btn ba btn-xs" onclick="pptApproveReady()">✅ اعتماد الجاهزة فقط</button>
-    </div>
-    <!-- Records table -->
-    <div style="max-height:400px;overflow-y:auto">
-      ${PPT.records.map((r,i)=>pptRecordHTML(r,i)).join('')}
-    </div>
-    ${PPT.unlinkedImgs.length?`<div style="margin-top:10px;padding:10px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);border-radius:9px">
-      <div style="font-size:12px;font-weight:700;color:var(--blue2);margin-bottom:6px">🖼️ ${PPT.unlinkedImgs.length} صورة غير مرتبطة من الملف</div>
-      <div class="img-grid">${PPT.unlinkedImgs.map((img,j)=>`<img src="${img.src}" class="img-th" onclick="pptLinkImg(${j})" title="اضغط لربطها بمخالفة">`).join('')}</div>
-    </div>`:''}
-  </div>`;
-
-  foot.innerHTML=`<button class="btn bg" onclick="pptShowStep(1)">← رجوع</button>
-    <button class="btn bp" onclick="pptShowStep(4)" ${!approved?'disabled':''}>✅ حفظ المعتمدة (${approved}) →</button>`;
-}
-
-function pptRecordHTML(r,i){
-  const st=r._pptStatus||'pending';
-  const isDup=r._isDuplicate;
-  const needsRev=r._needsReview;
-  const bg=st==='approved'?'rgba(22,163,74,.06)':st==='excluded'?'rgba(220,38,38,.04)':needsRev?'rgba(217,119,6,.06)':'var(--card)';
-  const bc=st==='approved'?'rgba(22,163,74,.3)':st==='excluded'?'rgba(220,38,38,.2)':needsRev?'rgba(217,119,6,.3)':'var(--border)';
-
-  const facs=getFactories();
-  const imgs=r._pptImages||[];
-
-  return`<div id="pptrec-${i}" style="background:${bg};border:1px solid ${bc};border-radius:var(--r2);padding:10px;margin-bottom:8px">
-    <!-- Header row -->
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-      <span style="font-size:10px;color:var(--muted);background:var(--bg2);padding:2px 7px;border-radius:5px;white-space:nowrap">شريحة ${r._pptSlide} — صف ${r._pptRow}</span>
-      ${isDup?'<span class="badge bg-a">⚠️ مكرر محتمل</span>':''}
-      ${needsRev?'<span class="badge bg-a">⚠️ يحتاج مراجعة</span>':''}
-      <span class="badge ${st==='approved'?'bg-g':st==='excluded'?'bg-r':'bg-gr'}">${st==='approved'?'✅ معتمد':st==='excluded'?'❌ مستبعد':'⏳ بانتظار'}</span>
-      <div style="margin-right:auto;display:flex;gap:4px">
-        <button class="btn bs btn-xs" onclick="pptApprove(${i})" title="اعتماد">✅</button>
-        <button class="btn bg btn-xs" onclick="pptEditRec(${i})" title="تعديل">✏️</button>
-        <button class="btn bg btn-xs" onclick="pptAddPhoto(${i})" title="إضافة صورة">📷</button>
-        <button class="btn bd btn-xs" onclick="pptExclude(${i})" title="استبعاد">❌</button>
-      </div>
-    </div>
-    <!-- Fields -->
-    <div class="dg" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">
-      <div class="di"><div class="dl">التاريخ</div><div class="dv">${esc(r.date||'—')}</div></div>
-      <div class="di"><div class="dl">المصنع</div><div class="dv">${esc(r.factory||'—')}</div></div>
-      <div class="di"><div class="dl">نوع المخالفة</div><div class="dv">${esc(r.type||'—')}</div></div>
-      <div class="di"><div class="dl">الخطورة</div><div class="dv">${sevB(r.severity||'متوسطة')}</div></div>
-    </div>
-    ${r.description?`<div style="font-size:11px;color:var(--dim);padding:6px 8px;background:var(--bg2);border-radius:6px;margin-top:4px;line-height:1.6">${esc(r.description.slice(0,200))}</div>`:''}
-    ${r.actionTaken?`<div style="font-size:11px;color:var(--cyan);margin-top:4px">⚡ ${esc(r.actionTaken.slice(0,150))}</div>`:''}
-    ${imgs.length?`<div class="img-grid" style="margin-top:6px">${imgs.map((img,j)=>`<img src="${img.src}" class="img-th" onclick="pptViewImg(${i},${j})" title="صورة ${j+1}">`).join('')}</div>`:''}
-  </div>`;
-}
-
-// Actions
-function pptApprove(i){PPT.records[i]._pptStatus='approved';pptRenderReview();}
-function pptExclude(i){PPT.records[i]._pptStatus='excluded';pptRenderReview();}
-function pptApproveAll(){PPT.records.forEach(r=>{if(r._pptStatus!=='excluded')r._pptStatus='approved';});pptRenderReview();}
-function pptExcludeAll(){PPT.records.forEach(r=>r._pptStatus='excluded');pptRenderReview();}
-function pptResetAll(){PPT.records.forEach(r=>r._pptStatus='pending');pptRenderReview();}
-function pptApproveReady(){PPT.records.forEach(r=>{if(!r._needsReview&&!r._isDuplicate)r._pptStatus='approved';});pptRenderReview();}
-
-function pptViewImg(ri,ii){
-  const img=PPT.records[ri]?._pptImages?.[ii];if(!img)return;
-  openModal('🖼️ معاينة الصورة',`<img src="${img.src}" style="width:100%;border-radius:8px;max-height:65vh;object-fit:contain">`);
-}
-
-function pptAddPhoto(i){
-  const input=document.createElement('input');
-  input.type='file';input.accept='image/*';input.multiple=true;
-  input.onchange=()=>{
-    [...input.files].forEach(f=>{
-      const reader=new FileReader();
-      reader.onload=e=>{
-        if(!PPT.records[i]._pptImages)PPT.records[i]._pptImages=[];
-        PPT.records[i]._pptImages.push({src:e.target.result,ext:'jpg',manual:true});
-        // Update the image grid in UI
-        const rec=document.getElementById('pptrec-'+i);
-        if(rec)pptRenderReview();
-      };
-      reader.readAsDataURL(f);
-    });
-  };
-  input.click();
-}
-
-function pptEditRec(i){
-  const r=PPT.records[i];const facs=getFactories();const vioTypes=getVioTypes();
-  openModal(`✏️ تعديل المخالفة — شريحة ${r._pptSlide} صف ${r._pptRow}`,`
-  <div class="form-row">
-    <div class="fg"><label class="fl">التاريخ</label><input type="date" class="fc" id="pe-date" value="${r.date||td()}"></div>
-    <div class="fg"><label class="fl">المصنع</label><select class="fc" id="pe-fac">${facs.map(f=>`<option ${r.factory===f?'selected':''}>${f}</option>`).join('')}</select></div>
-  </div>
-  <div class="form-row">
-    <div class="fg"><label class="fl">نوع المخالفة</label>
-      <select class="fc" id="pe-type">
-        <option value="">${esc(r.type||'— اختر —')}</option>
-        ${vioTypes.map(t=>`<option ${r.type===t?'selected':''}>${t}</option>`).join('')}
-      </select>
-    </div>
-    <div class="fg"><label class="fl">الخطورة</label>
-      <select class="fc" id="pe-sev">${SEVERITIES.map(s=>`<option ${(r.severity||'متوسطة')===s?'selected':''}>${s}</option>`).join('')}</select>
-    </div>
-  </div>
-  <div class="fg"><label class="fl">الوصف</label><textarea class="fc" id="pe-desc" rows="3">${esc(r.description||'')}</textarea></div>
-  <div class="fg"><label class="fl">الإجراء المتخذ</label><textarea class="fc" id="pe-act" rows="2">${esc(r.actionTaken||'')}</textarea></div>
-  <div class="fg"><label class="fl">الملاحظات</label><textarea class="fc" id="pe-notes">${esc(r.notes||'')}</textarea></div>`,
-  [{label:'💾 حفظ',cls:'bp',fn:`pptSaveEdit(${i})`}]);
-}
-
-function pptSaveEdit(i){
-  const r=PPT.records[i];
-  r.date=document.getElementById('pe-date')?.value||r.date;
-  r.factory=document.getElementById('pe-fac')?.value||r.factory;
-  r.type=document.getElementById('pe-type')?.value||r.type;
-  r.severity=document.getElementById('pe-sev')?.value||r.severity;
-  r.description=document.getElementById('pe-desc')?.value||r.description;
-  r.actionTaken=document.getElementById('pe-act')?.value||r.actionTaken;
-  r.notes=document.getElementById('pe-notes')?.value||r.notes;
-  r._needsReview=!r.type&&!r.description;
-  closeModal();
-  setTimeout(pptRenderReview,100);
-  toast('تم الحفظ ✅','ok');
-}
-
-function pptLinkImg(imgIdx){
-  const img=PPT.unlinkedImgs[imgIdx];if(!img)return;
-  const opts=PPT.records.map((r,i)=>`<option value="${i}">شريحة ${r._pptSlide} ص${r._pptRow} — ${esc(r.type||r.description?.slice(0,30)||'مخالفة')}</option>`).join('');
-  openModal('🖼️ ربط الصورة بمخالفة',`
-    <img src="${img.src}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-bottom:12px">
-    <div class="fg"><label class="fl">اختر المخالفة</label><select class="fc" id="ppt-link-sel">${opts}</select></div>`,
-    [{label:'ربط',cls:'bp',fn:`pptDoLinkImg(${imgIdx})`}]);
-}
-
-function pptDoLinkImg(imgIdx){
-  const selIdx=parseInt(document.getElementById('ppt-link-sel')?.value);
-  if(isNaN(selIdx))return;
-  if(!PPT.records[selIdx]._pptImages)PPT.records[selIdx]._pptImages=[];
-  PPT.records[selIdx]._pptImages.push(PPT.unlinkedImgs[imgIdx]);
-  PPT.unlinkedImgs.splice(imgIdx,1);
-  closeModal();pptRenderReview();toast('تم الربط ✅','ok');
-}
-
-// ── Final Save ──
-async function pptFinalSave(){
-  const toSave=PPT.records.filter(r=>r._pptStatus==='approved');
-  if(!toSave.length){toast('لا توجد مخالفات معتمدة','err');pptShowStep(3);return;}
-
-  const body=document.getElementById('gmod-body');
-  const foot=document.getElementById('gmod-foot');
-  if(body)body.innerHTML=`<div style="text-align:center;padding:30px">
-    <div style="font-size:44px;margin-bottom:12px">💾</div>
-    <div style="font-size:14px;font-weight:800">جاري حفظ ${toSave.length} مخالفة...</div>
-    <div class="prog" style="max-width:240px;margin:14px auto 0"><div class="prog-f" id="ppt-spb" style="width:0%"></div></div>
-  </div>`;
-  if(foot)foot.innerHTML='';
-
-  let saved=0;
-  for(let i=0;i<toSave.length;i++){
-    const r=toSave[i];
-    const sp=document.getElementById('ppt-spb');
-    if(sp)sp.style.width=Math.round((i/toSave.length)*100)+'%';
-
-    const imgArr=(r._pptImages||[]).map(img=>({src:img.src,source:'pptx',file:r._pptFile,slide:r._pptSlide,row:r._pptRow}));
-
-    const vi={
-      id:nid('VIO',DB.violations),
-      date:r.date||td(),time:r.time||tn(),eventId:'',
-      factory:r.factory||'',area:r.area||'',location:r.location||'',
-      type:r.type||'مخالفة عامة',severity:r.severity||'متوسطة',
-      status:'جديدة',
-      description:r.description||'',
-      actionTaken:r.actionTaken||'',
-      concernedParty:r.concernedParty||'',
-      followUpResponsible:'',notes:r.notes||'',
-      images:imgArr,
-      timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),
-        action:`استيراد من PowerPoint — ${r._pptFile} شريحة ${r._pptSlide} صف ${r._pptRow}`,
-        user:CUSER?.name||''}],
-      importBatchId:PPT.batchId,
-      pptSource:{file:r._pptFile,slide:r._pptSlide,row:r._pptRow,originalNum:r.originalNum||''},
-      createdAt:new Date().toISOString()
-    };
-
-    DB.violations.push(vi);
-    sbSyncVi(vi);
-    saved++;
-    if(i%5===0)await new Promise(r2=>setTimeout(r2,10));
-  }
-
-  // Batch record
-  if(!DB.importBatches)DB.importBatches=[];
-  DB.importBatches.push({
-    id:PPT.batchId,date:td(),time:tn(),user:CUSER?.name||'',
-    type:'pptx',source:PPT.file?.name||'',
-    totalRecords:PPT.records.length,successCount:saved,
-    failCount:0,duplicateCount:0,status:'مكتملة',
-    createdAt:new Date().toISOString()
-  });
-
-  logAudit('استيراد PowerPoint','مخالفة',PPT.batchId,
-    `${PPT.file?.name} — ${saved} مخالفة من ${PPT.records.length} صف`);
-  saveDB();updateBadges();
-
-  if(body)body.innerHTML=`<div style="text-align:center;padding:20px">
-    <div style="font-size:52px;margin-bottom:12px">🎉</div>
-    <div style="font-size:16px;font-weight:900;margin-bottom:16px">تم الاستيراد بنجاح!</div>
-    <div style="padding:16px;background:rgba(217,119,6,.1);border-radius:12px;display:inline-block">
-      <div style="font-size:28px;font-weight:900;color:var(--amb2)">⚠️ ${saved}</div>
-      <div style="font-size:12px;color:var(--muted)">مخالفة تمت إضافتها</div>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:12px">رقم العملية: ${PPT.batchId}</div>
-  </div>`;
-  if(foot)foot.innerHTML=`<button class="btn bg" onclick="closeModal()">إغلاق</button>
-    <button class="btn ba" onclick="closeModal();goTo('violations')">⚠️ عرض المخالفات →</button>`;
-
-  toast(`✅ تم استيراد ${saved} مخالفة من PowerPoint`,'ok');
-}
-
 let IW={step:1,type:null,source:null,rawHeaders:[],rawRows:[],colMap:{},records:[],valid:[],errors:[],dups:[],selected:new Set(),batchId:null};
 
 const IMP_SCHEMA={
@@ -2944,23 +2370,13 @@ function autoMatch(col,type){const c=String(col||'').trim().toLowerCase();const 
 function renderImportCenter(){
   const el=document.getElementById('page-import-center');if(!el)return;
   el.innerHTML=`<div class="sh"><div class="sh-t">📥 مركز الاستيراد الجماعي</div></div>
-  <!-- PowerPoint Import — Featured -->
-  <div class="card" style="border:2px solid rgba(234,88,12,.4);background:rgba(234,88,12,.05);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <div style="font-size:48px">📊</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:900;color:var(--org2)">استيراد مخالفات من PowerPoint</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.7">يقرأ جداول الشرائح صفًا بصف — كل صف = مخالفة مستقلة للمراجعة</div>
-      </div>
-      <button class="btn bo" style="font-size:13px;padding:10px 18px;font-weight:900;white-space:nowrap" onclick="openPPTXImport()">📊 استيراد من PowerPoint</button>
-    </div>
-  </div>
   <div class="grid3" style="margin-bottom:16px">
-    ${[{ic:'⚠️',t:'استيراد مخالفات',s:'Excel/CSV',tp:'violations'},{ic:'📌',t:'استيراد أحداث',s:'Excel/CSV',tp:'events'},{ic:'🔍',t:'استيراد مراجعات',s:'Excel/CSV',tp:'reviews'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="openImpWiz('${c.tp}','excel')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
+    ${[{ic:'⚠️',t:'استيراد مخالفات',s:'Excel/CSV/Word',tp:'violations'},{ic:'📌',t:'استيراد أحداث',s:'Excel/CSV/Word',tp:'events'},{ic:'🔍',t:'استيراد مراجعات',s:'Excel/CSV/Word',tp:'reviews'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="openImpWiz('${c.tp}','excel')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
   </div>
-  <div class="card"><div class="ctitle" style="margin-bottom:10px">📋 قوالب جاهزة</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bg btn-sm" onclick="dlTemplate('violations')">⬇️ قالب المخالفات</button><button class="btn bg btn-sm" onclick="dlTemplate('events')">⬇️ قالب الأحداث</button><button class="btn bg btn-sm" onclick="dlTemplate('reviews')">⬇️ قالب المراجعات</button></div></div>
+  <div class="card"><div class="ctitle" style="margin-bottom:12px">📋 قوالب Excel الجاهزة</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn bg btn-sm" onclick="dlTemplate('violations')">⬇️ قالب المخالفات</button><button class="btn bg btn-sm" onclick="dlTemplate('events')">⬇️ قالب الأحداث</button><button class="btn bg btn-sm" onclick="dlTemplate('reviews')">⬇️ قالب المراجعات</button></div><p style="font-size:11px;color:var(--muted);margin-top:10px">💡 حمّل القالب، عبّئه بالبيانات في Excel، ثم ارفعه للاستيراد التلقائي</p></div>
   ${_recentImportBatches()}`;
 }
+
 function _recentImportBatches(){
   const bs=(DB.importBatches||[]).slice(-5).reverse();
   if(!bs.length)return`<div class="card"><div class="ctitle">📊 لا توجد عمليات استيراد سابقة</div></div>`;
@@ -4011,9 +3427,9 @@ async function loadFromSupabase(){
   }catch(e){setSyncStatus('error');return false;}
 }
 
-function sbSyncEv(ev,del=false){if(!sbReady)return;del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
-function sbSyncVi(vi,del=false){if(!sbReady)return;del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
-function sbSyncRv(rv,del=false){if(!sbReady)return;del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
+function sbSyncEv(ev,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
+function sbSyncVi(vi,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
+function sbSyncRv(rv,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
 function sbSyncStm(s,del=false){if(!sbReady)return;del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
 function sbSyncFu(f,del=false){if(!sbReady)return;del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
 function sbSyncTk(t,del=false){if(!sbReady)return;del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
@@ -4065,7 +3481,9 @@ function handleRT(table,payload,map){
   if(eventType==='INSERT'||eventType==='UPDATE'){
     const rec=fromRow(nr,map);const idx=arr.findIndex(r=>r.id===rec.id);
     if(idx>-1)arr[idx]=rec;else arr.push(rec);
-    toast('🔄 تحديث من جهاز آخر','inf');
+    // Show notification with pull action
+    const ntf=document.getElementById('rt-notify');
+    if(ntf){ntf.textContent=('🔄 بيانات جديدة من جهاز آخر');ntf.style.display='flex';clearTimeout(window._rtTimer);window._rtTimer=setTimeout(()=>ntf.style.display='none',8000);}
   }else if(eventType==='DELETE'){const id=or?.id;if(id)DB[table]=DB[table].filter(r=>r.id!==id);}
   LS.set('ccr_pro_db',JSON.stringify(DB));updateBadges();
   const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
@@ -4136,26 +3554,81 @@ function _loadChart(){
 
 function initApp(){
   loadTheme();updateClock();updateBadges();
-  // Restore last action on login
   try{restoreLastAction();}catch(e){}
-  // Restore last page
   const lp=LS.get('ccr_last_page')||'dashboard';
   goTo(lp);
-  // Clock tick
   setInterval(updateClock,30000);
-  // SLA check every 5 min
   setInterval(()=>{try{runSLA();}catch(e){}},5*60*1000);
   try{runSLA();}catch(e){}
-  // Chart.js async
   setTimeout(_loadChart,600);
-  // Save last page on nav
   document.querySelectorAll('.ni').forEach(n=>{
     n.addEventListener('click',()=>LS.set('ccr_last_page',curPage));
   });
-  // Desktop datetime bar
   const dtEl=document.getElementById('tb-dt');
   const updateDtVis=()=>{if(dtEl)dtEl.style.display=window.innerWidth>=1024?'flex':'none';};
   updateDtVis();window.addEventListener('resize',updateDtVis);
+
+  // ══ SUPABASE: Connect → Load → Realtime ══
+  let _retryCount=0;
+  const MAX_RETRY=5;
+
+  async function tryConnect(){
+    if(_retryCount>=MAX_RETRY){setSyncStatus('offline');return;}
+    _retryCount++;
+    setSyncStatus('syncing');
+    const ok=await initSupabase().catch(()=>false);
+    if(ok){
+      setupRealtime();
+      const loaded=await loadFromSupabase().catch(()=>false);
+      if(loaded){
+        updateBadges();
+        try{goTo(LS.get('ccr_last_page')||'dashboard');}catch(e){}
+        _retryCount=0;
+      }
+    } else {
+      setSyncStatus('offline');
+      const delay=Math.min(5000*Math.pow(2,_retryCount-1),30000);
+      setTimeout(tryConnect,delay);
+    }
+  }
+  setTimeout(tryConnect,800);
+
+  // ══ Auto-sync every 30 seconds ══
+  setInterval(async()=>{
+    if(sbReady&&navigator.onLine){
+      const ok=await connectAndSync().catch(()=>false);
+      if(ok)updateBadges();
+    } else if(!sbReady&&navigator.onLine&&_retryCount<MAX_RETRY){
+      tryConnect();
+    }
+  },30*1000);
+
+  // ══ Pull on page focus ══
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      if(sbReady){
+        const lastSync=LS.get('ccr_last_sync');
+        if(!lastSync||Date.now()-new Date(lastSync).getTime()>30000){
+          connectAndSync().catch(()=>{});
+        }
+      } else if(navigator.onLine&&_retryCount<MAX_RETRY){
+        tryConnect();
+      }
+    }
+  });
+
+  // ══ Online/Offline events ══
+  window.addEventListener('online',()=>{
+    toast('🌐 عاد الإنترنت — جاري المزامنة...','inf');
+    _retryCount=0;setTimeout(tryConnect,500);
+  });
+  window.addEventListener('offline',()=>{
+    setSyncStatus('offline');
+    toast('📴 انقطع الإنترنت — البيانات تُحفظ محلياً','warn');
+  });
+
+  // ══ Service Worker ══
+  setTimeout(()=>{try{registerServiceWorker();}catch(e){}},1500);
 }
 
 // ── ENTRY POINT ──
