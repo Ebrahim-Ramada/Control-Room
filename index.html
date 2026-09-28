@@ -1261,6 +1261,7 @@ function showVioDetail(id){
   </div>
   <div class="card"><div class="ctitle" style="margin-bottom:8px">📝 وصف المخالفة</div><p style="font-size:13px;line-height:1.7;color:var(--dim)">${esc(v.description||'—')}</p></div>
   ${v.actionTaken?`<div class="card"><div class="ctitle" style="margin-bottom:8px">✅ الإجراء المتخذ</div><p style="font-size:13px;line-height:1.7;color:var(--dim)">${esc(v.actionTaken)}</p></div>`:''}
+  ${v.followUpStmt?`<div class="card" style="border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.04)"><div class="ctitle" style="margin-bottom:8px;color:var(--purp2)">📋 المتابعة والإفادة</div><p style="font-size:13px;line-height:1.7;color:var(--dim);white-space:pre-wrap">${esc(v.followUpStmt)}</p></div>`:''}
   <div class="stm-section-${v.id}">${renderInlineStmt(v,'vi')}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn bg btn-sm" onclick="closeModal();openVioForm('${v.id}')">✏️ تعديل</button>
@@ -1424,6 +1425,32 @@ function openSetDeletePassword(){
     [{label:'💾 حفظ كلمة المرور',cls:'bd',fn:'saveDeletePassword()'}]);
 }
 
+// ══ Sync and refresh current page ══
+async function syncAndRefreshPage(page){
+  const badge=document.getElementById((page==='violations'?'vi':'ev')+'-sync-badge');
+  if(badge)badge.textContent='⏳ جاري التحديث...';
+  if(!sbReady){
+    toast('غير متصل — جاري الاتصال...','warn');
+    const ok=await initSupabase().catch(()=>false);
+    if(!ok){toast('❌ تعذر الاتصال بالسحابة','err');if(badge)badge.textContent='';return;}
+    setupRealtime();
+  }
+  const loaded=await loadFromSupabase().catch(()=>false);
+  if(loaded){
+    updateBadges();
+    if(page==='violations')filterViols();
+    else if(page==='events')filterEvts();
+    else if(page==='reviews')filterRevs();
+    const now=new Date();
+    const t=`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    if(badge)badge.textContent=`✅ آخر تحديث: ${t}`;
+    toast('✅ تم تحديث البيانات من السحابة','ok');
+  } else {
+    if(badge)badge.textContent='❌ فشل التحديث';
+    toast('❌ فشل التحديث — تأكد من الإنترنت','err');
+  }
+}
+
 // ══════════════════════════════════════════════════
 //  EVENTS MODULE
 // ══════════════════════════════════════════════════
@@ -1437,8 +1464,9 @@ function renderEvents(){
   const el=document.getElementById('page-events');if(!el)return;
   el.innerHTML=`
   <div class="sh">
-    <div class="sh-t">📌 الأحداث</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div class="sh-t">📌 الأحداث <span id="ev-sync-badge" style="font-size:10px;color:var(--muted);font-weight:400"></span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <button class="btn bg btn-sm" onclick="syncAndRefreshPage('events')" style="color:var(--cyan);border-color:var(--cyan)">☁️ تحديث</button>
       <button class="btn bp btn-sm" onclick="openEventForm()">➕ تسجيل حدث</button>
       <button class="btn bc btn-sm" onclick="openBulkEventForm()">📦 جماعي</button>
     </div>
@@ -1707,8 +1735,9 @@ function renderViolations(){
   const el=document.getElementById('page-violations');if(!el)return;
   el.innerHTML=`
   <div class="sh">
-    <div class="sh-t">⚠️ المخالفات</div>
-    <div style="display:flex;gap:8px">
+    <div class="sh-t">⚠️ المخالفات <span id="vi-sync-badge" style="font-size:10px;color:var(--muted);font-weight:400"></span></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn bg btn-sm" onclick="syncAndRefreshPage('violations')" title="تحديث من السحابة" style="color:var(--cyan);border-color:var(--cyan)">☁️ تحديث</button>
       <button class="btn bp btn-sm" onclick="openVioForm()">➕ تسجيل مخالفة</button>
     </div>
   </div>
@@ -1793,12 +1822,13 @@ function openVioForm(id='',evId=''){
   <div class="form-row">
     <div class="fg"><label class="fl">المسؤول عن المتابعة</label><select class="fc" id="vf-resp"><option value="">— اختر —</option>${users.map(u=>`<option ${v?.followUpResponsible===u?'selected':''}>${u}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">ملاحظات</label><input type="text" class="fc" id="vf-notes" value="${esc(v?.notes||'')}"></div>
+    <div class="fg"><label class="fl" style="color:var(--purp2)">📋 المتابعة والإفادة</label><textarea class="fc" id="vf-fus" rows="3" style="border-color:rgba(124,58,237,.3)">${esc(v?.followUpStmt||'')}</textarea></div>
   </div>`,[{label:'✅ حفظ',cls:'bp',fn:`saveVio('${id}')`}]);
 }
 
 function saveVio(id=''){
   const desc=document.getElementById('vf-desc')?.value?.trim();if(!desc){toast('الوصف مطلوب','err');return;}
-  const data={date:document.getElementById('vf-date').value,time:document.getElementById('vf-time').value,eventId:document.getElementById('vf-eid').value,factory:document.getElementById('vf-fac').value,area:document.getElementById('vf-area').value,location:document.getElementById('vf-loc').value,type:document.getElementById('vf-type').value,severity:document.getElementById('vf-sev').value,description:desc,concernedParty:document.getElementById('vf-conc').value,status:document.getElementById('vf-sta').value,actionTaken:document.getElementById('vf-act').value,followUpResponsible:document.getElementById('vf-resp').value,notes:document.getElementById('vf-notes').value};
+  const data={date:document.getElementById('vf-date').value,time:document.getElementById('vf-time').value,eventId:document.getElementById('vf-eid').value,factory:document.getElementById('vf-fac').value,area:document.getElementById('vf-area').value,location:document.getElementById('vf-loc').value,type:document.getElementById('vf-type').value,severity:document.getElementById('vf-sev').value,description:desc,concernedParty:document.getElementById('vf-conc').value,status:document.getElementById('vf-sta').value,actionTaken:document.getElementById('vf-act').value,followUpResponsible:document.getElementById('vf-resp').value,notes:document.getElementById('vf-notes').value,followUpStmt:document.getElementById('vf-fus')?.value||''};
   if(id){const idx=DB.violations.findIndex(v=>v.id===id);if(idx>-1){logAudit('تعديل','مخالفة',id,'',DB.violations[idx],data);DB.violations[idx]={...DB.violations[idx],...data};}}
   else{const v={...data,id:nid('VIO',DB.violations),createdAt:new Date().toISOString(),timeline:[]};DB.violations.push(v);logAudit('إضافة','مخالفة',v.id,'');}
   saveDB();closeModal();updateBadges();
@@ -2397,15 +2427,17 @@ let PPT={file:null,records:[],unlinkedImgs:[],batchId:'',step:1};
 
 const PPT_COL_MAP={
   '#':'originalNum','م':'originalNum','رقم':'originalNum','رقم المخالفة':'originalNum',
-  'التاريخ':'date','تاريخ':'date',
-  'المصنع':'factory','مصنع':'factory',
-  'نوع المخالفة':'type','النوع':'type','نوع':'type','المخالفة':'type',
-  'الوصف':'description','الهدف':'description','وصف المخالفة':'description',
-  'الإجراء المتخذ':'actionTaken','الإجراء':'actionTaken','إجراء':'actionTaken',
-  'الملاحظات':'notes','ملاحظات':'notes',
-  'المتابعة':'notes2','المتابعة والإقالة':'notes2','المتابعة والإجراء':'notes2',
-  'الجهة':'concernedParty','المعني':'concernedParty',
-  'الخطورة':'severity','درجة الخطورة':'severity',
+  'التاريخ':'date','تاريخ':'date','التاريخ/الوقت':'date',
+  'المصنع':'factory','مصنع':'factory','موقع':'factory',
+  'نوع المخالفة':'type','النوع':'type','نوع':'type','المخالفة':'type','فئة المخالفة':'type',
+  'الوصف':'description','الهدف':'description','وصف المخالفة':'description','الواقعة':'description',
+  'الإجراء المتخذ':'actionTaken','الإجراء':'actionTaken','إجراء':'actionTaken','إجراء المتخذ':'actionTaken',
+  'الملاحظات':'notes','ملاحظات':'notes','ملاحظة':'notes',
+  'المتابعة والإفادة':'followUpStmt','المتابعة والإفادات':'followUpStmt',
+  'المتابعة والإقالة':'followUpStmt','المتابعة':'followUpStmt',
+  'الإفادة':'followUpStmt','المتابعة والإجراء':'followUpStmt',
+  'الجهة':'concernedParty','المعني':'concernedParty','الشخص المعني':'concernedParty',
+  'الخطورة':'severity','درجة الخطورة':'severity','درجة':'severity',
 };
 
 function matchColName(name){
@@ -2431,7 +2463,26 @@ function loadJSZipLib(){
 }
 
 function getCellText(tc){
-  return[...tc.querySelectorAll('t')].map(t=>t.textContent).join('').trim();
+  // Get all text runs including line breaks (a:br → newline)
+  let text='';
+  const nodes=tc.querySelectorAll('t,br');
+  let prev=null;
+  for(const n of nodes){
+    if(n.tagName==='br'||n.localName==='br'){text+='\n';}
+    else{text+=n.textContent;}
+    prev=n;
+  }
+  return text.trim();
+}
+
+function normSev(s){
+  const t=(s||'').trim();
+  if(!t)return'متوسطة';
+  if(t.includes('حرج')||t.includes('خطير'))return'حرجة';
+  if(t.includes('عال')||t.includes('كبير'))return'عالية';
+  if(t.includes('منخفض')||t.includes('بسيط'))return'منخفضة';
+  if(t.includes('متوسط'))return'متوسطة';
+  return'متوسطة';
 }
 
 function normDateAr(s){
@@ -2533,6 +2584,8 @@ async function pptAnalyze(){
 
     const parser=new DOMParser();
     const allRecs=[];
+    const slideRowCounts={};
+    let totalExpectedRows=0;
 
     for(let si=0;si<slideFiles.length;si++){
       const sName=slideFiles[si];
@@ -2582,20 +2635,27 @@ async function pptAnalyze(){
         // Extract data rows
         for(let ri=hdrIdx+1;ri<rows.length;ri++){
           const cells=[...rows[ri].querySelectorAll('tc')].map(getCellText);
-          if(!cells.some(c=>c.length>0))continue;
+          // Only skip rows where ALL cells are completely empty
+          const nonEmpty=cells.filter(c=>c.trim().length>0);
+          if(nonEmpty.length===0)continue; // truly empty row — skip
+          // Also skip rows that look like table headers repeated mid-table
+          if(nonEmpty.length===cells.length&&cells.every((c,i)=>c===headers[i]))continue;
 
           const rec={
             _slide:slideNum,_file:PPT.file.name,_row:ri-hdrIdx,_tbl:tableIdx,
             _status:'pending',_imgs:[],
             date:'',factory:'',type:'',severity:'متوسطة',status:'جديدة',
-            description:'',actionTaken:'',concernedParty:'',notes:'',originalNum:''
+            description:'',actionTaken:'',concernedParty:'',
+            notes:'',followUpStmt:'',originalNum:''
           };
 
           cells.forEach((val,ci)=>{
             const field=colMap[ci];
             if(!field||!val)return;
             if(field==='date')rec.date=normDateAr(val);
-            else if(field==='notes2')rec.notes=(rec.notes?rec.notes+' — ':'')+val;
+            else if(field==='notes2')rec.notes=(rec.notes?rec.notes+'\n':'') +val;
+            else if(field==='followUpStmt')rec.followUpStmt=(rec.followUpStmt?rec.followUpStmt+'\n':'')+val;
+            else if(field==='severity')rec.severity=normSev(val)||'متوسطة';
             else rec[field]=val;
           });
 
@@ -2613,10 +2673,13 @@ async function pptAnalyze(){
         }
         tableIdx++;
       });
+      slideRowCounts[slideNum]=allRecs.length; // running total after this slide
     }
 
     PPT.records=allRecs;
-    pptProg(100,'اكتمل!');
+    PPT._slideRows=slideRowCounts; // Track expected rows per slide
+    PPT._totalExpected=totalExpectedRows;
+    pptProg(100,`اكتمل! — تم استخراج ${allRecs.length} مخالفة`);
     await new Promise(r=>setTimeout(r,500));
 
     if(!allRecs.length){
@@ -2650,6 +2713,11 @@ function pptShowReview(){
       <div style="flex:1;min-width:60px;text-align:center;padding:7px;background:rgba(220,38,38,.1);border-radius:8px;border:1px solid rgba(220,38,38,.3)"><div style="font-size:18px;font-weight:900;color:var(--red2)">${excluded}</div><div style="font-size:10px;color:var(--muted)">❌ مستبعد</div></div>
     </div>
     ${dups?`<div style="padding:7px;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.3);border-radius:7px;font-size:11px;color:var(--amb2);margin-bottom:8px">⚠️ ${dups} مكررة محتملة</div>`:''}
+    <!-- Count validation -->
+    <div id="ppt-count-check" style="padding:8px;border-radius:8px;font-size:11px;margin-bottom:8px;${total>0?'background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);color:var(--grn2)':'background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);color:var(--red2)'}">
+      📊 <strong>المخالفات المستخرجة: ${total}</strong>
+      ${total>=PPT._totalExpected&&PPT._totalExpected>0?' ✅ مطابق للملف':''}
+    </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn bs btn-xs" onclick="pptApproveAll()">✅ اعتماد الكل</button>
       <button class="btn bd btn-xs" onclick="pptExcludeAll()">❌ استبعاد الكل</button>
@@ -2688,7 +2756,9 @@ function pptCardHTML(r,i){
       <div><span style="font-size:9px;color:var(--muted)">نوع المخالفة</span><div style="font-size:12px">${esc(r.type||'—')}</div></div>
     </div>
     ${r.description?`<div style="font-size:11px;color:var(--dim);padding:5px 7px;background:var(--bg2);border-radius:6px;margin-bottom:4px">${esc(r.description.slice(0,200))}</div>`:''}
-    ${r.actionTaken?`<div style="font-size:11px;color:var(--cyan)">⚡ ${esc(r.actionTaken.slice(0,120))}</div>`:''}
+    ${r.actionTaken?`<div style="font-size:11px;color:var(--cyan);margin-bottom:2px">⚡ <strong>الإجراء:</strong> ${esc(r.actionTaken.slice(0,120))}</div>`:''}
+    ${r.followUpStmt?`<div style="font-size:11px;color:var(--purp2);padding:4px 6px;background:rgba(124,58,237,.06);border-right:2px solid var(--purp);border-radius:5px;margin-bottom:2px"><strong>📋 المتابعة والإفادة:</strong><br>${esc(r.followUpStmt.slice(0,200))}</div>`:''}
+    ${r.notes?`<div style="font-size:11px;color:var(--muted);margin-bottom:2px">📝 <strong>ملاحظات:</strong> ${esc(r.notes.slice(0,100))}</div>`:''}
     ${(r._imgs||[]).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${r._imgs.map((img,j)=>`<img src="${img.src}" style="width:44px;height:44px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid var(--border)" onclick="openModal('🖼️ صورة',\`<img src='${img.src}' style='width:100%;border-radius:8px'>\`)">`).join('')}</div>`:''}
   </div>`;
 }
@@ -2723,6 +2793,7 @@ function pptEdit(i){
   <div class="fg"><label class="fl">نوع المخالفة *</label><input type="text" class="fc" id="pe-type" value="${esc(r.type||'')}" list="vio-types-list"></div>
   <div class="fg"><label class="fl">الوصف / الهدف</label><textarea class="fc" id="pe-desc" rows="3">${esc(r.description||'')}</textarea></div>
   <div class="fg"><label class="fl">الإجراء المتخذ</label><textarea class="fc" id="pe-act" rows="2">${esc(r.actionTaken||'')}</textarea></div>
+  <div class="fg"><label class="fl" style="color:var(--purp2)">📋 المتابعة والإفادة</label><textarea class="fc" id="pe-fus" rows="3" style="border-color:rgba(124,58,237,.3)">${esc(r.followUpStmt||'')}</textarea></div>
   <div class="fg"><label class="fl">الملاحظات</label><textarea class="fc" id="pe-notes">${esc(r.notes||'')}</textarea></div>`,
   [{label:'💾 حفظ',cls:'bp',fn:`pptSaveEdit(${i})`}]);
 }
@@ -2734,6 +2805,7 @@ function pptSaveEdit(i){
   r.type=document.getElementById('pe-type')?.value||r.type;
   r.description=document.getElementById('pe-desc')?.value||r.description;
   r.actionTaken=document.getElementById('pe-act')?.value||r.actionTaken;
+  r.followUpStmt=document.getElementById('pe-fus')?.value||r.followUpStmt;
   r.notes=document.getElementById('pe-notes')?.value||r.notes;
   r._needsReview=!r.type&&!r.description;
   closeModal();setTimeout(pptShowReview,100);toast('تم الحفظ ✅','ok');
@@ -2760,7 +2832,9 @@ async function pptSaveApproved(){
       factory:r.factory||'',area:'',location:'',
       type:r.type||'مخالفة',severity:r.severity||'متوسطة',status:'جديدة',
       description:r.description||'',actionTaken:r.actionTaken||'',
-      concernedParty:r.concernedParty||'',followUpResponsible:'',notes:r.notes||'',
+      concernedParty:r.concernedParty||'',followUpResponsible:'',
+      notes:r.notes||'',
+      followUpStmt:r.followUpStmt||'',
       images:imgArr,
       timeline:[{ts:new Date().toISOString(),date:td(),time:tn(),
         action:`استيراد PowerPoint — ${r._file} ش${r._slide} ص${r._row}`,user:CUSER?.name||''}],
