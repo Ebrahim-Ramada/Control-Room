@@ -4040,26 +4040,84 @@ function _loadChart(){
 
 function initApp(){
   loadTheme();updateClock();updateBadges();
-  // Restore last action on login
   try{restoreLastAction();}catch(e){}
-  // Restore last page
   const lp=LS.get('ccr_last_page')||'dashboard';
   goTo(lp);
-  // Clock tick
   setInterval(updateClock,30000);
-  // SLA check every 5 min
   setInterval(()=>{try{runSLA();}catch(e){}},5*60*1000);
   try{runSLA();}catch(e){}
-  // Chart.js async
   setTimeout(_loadChart,600);
-  // Save last page on nav
   document.querySelectorAll('.ni').forEach(n=>{
     n.addEventListener('click',()=>LS.set('ccr_last_page',curPage));
   });
-  // Desktop datetime bar
   const dtEl=document.getElementById('tb-dt');
   const updateDtVis=()=>{if(dtEl)dtEl.style.display=window.innerWidth>=1024?'flex':'none';};
   updateDtVis();window.addEventListener('resize',updateDtVis);
+
+  // ══ SUPABASE AUTO-SYNC (بدون ضغط أي زر) ══
+  let _retry=0;const MAX_R=5;
+
+  async function startSync(){
+    if(_retry>=MAX_R)return;
+    _retry++;
+    setSyncStatus('syncing');
+    const ok=await initSupabase().catch(()=>false);
+    if(!ok){
+      const delay=Math.min(5000*Math.pow(2,_retry-1),30000);
+      setSyncStatus('offline');
+      setTimeout(startSync,delay);
+      return;
+    }
+    setupRealtime();
+    // Load from cloud
+    const loaded=await loadFromSupabase().catch(()=>false);
+    if(loaded){
+      updateBadges();
+      try{goTo(LS.get('ccr_last_page')||'dashboard');}catch(e){}
+      _retry=0;
+      // Auto-push any unsynced local data
+      const pending=(DB._pendingSync?.violations?.length||0)+(DB._pendingSync?.events?.length||0);
+      if(pending>0){
+        setTimeout(()=>forceSyncPending().catch(()=>{}),2000);
+      }
+    }
+  }
+  setTimeout(startSync,800);
+
+  // ══ Auto-sync every 30 seconds (تحديث تلقائي كل 30 ثانية) ══
+  setInterval(async()=>{
+    if(sbReady&&navigator.onLine){
+      const ok=await loadFromSupabase().catch(()=>false);
+      if(ok){updateSyncTime();updateBadges();}
+    }else if(!sbReady&&navigator.onLine&&_retry<MAX_R){
+      startSync();
+    }
+  },30*1000);
+
+  // ══ Pull when returning to tab ══
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      if(sbReady){
+        const last=LS.get('ccr_last_sync');
+        if(!last||Date.now()-new Date(last).getTime()>20000){
+          loadFromSupabase().then(ok=>{if(ok){updateSyncTime();updateBadges();}}).catch(()=>{});
+        }
+      }else if(navigator.onLine&&_retry<MAX_R){startSync();}
+    }
+  });
+
+  // ══ Reconnect when internet returns ══
+  window.addEventListener('online',()=>{
+    toast('🌐 عاد الإنترنت — جاري المزامنة...','inf');
+    _retry=0;setTimeout(startSync,500);
+  });
+  window.addEventListener('offline',()=>{
+    setSyncStatus('offline');
+    toast('📴 انقطع الإنترنت — البيانات تُحفظ محلياً','warn');
+  });
+
+  // ══ Service Worker ══
+  setTimeout(()=>{try{if(typeof registerServiceWorker==='function')registerServiceWorker();}catch(e){}},1500);
 }
 
 // ── ENTRY POINT ──
