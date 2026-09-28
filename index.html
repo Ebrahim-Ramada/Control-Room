@@ -1610,12 +1610,14 @@ async function openSyncDiagnostic(){
   if(sbReady){
     try{
       const[rv,re,rr]=await Promise.all([
-        sb.from('violations').select('id',{count:'exact',head:true}),
-        sb.from('events').select('id',{count:'exact',head:true}),
-        sb.from('reviews').select('id',{count:'exact',head:true}),
+        sbREST('GET','violations',null,'select=id'),
+        sbREST('GET','events',null,'select=id'),
+        sbREST('GET','reviews',null,'select=id'),
       ]);
-      cloudVio=rv.count||0;cloudEv=re.count||0;cloudRv=rr.count||0;
-    }catch(e){}
+      cloudVio=Array.isArray(rv)?rv.length:0;
+      cloudEv=Array.isArray(re)?re.length:0;
+      cloudRv=Array.isArray(rr)?rr.length:0;
+    }catch(e){console.warn('Count error:',e.message);}
   }
 
   const diff=localVio-cloudVio;
@@ -3965,9 +3967,17 @@ function handleRT(table,payload,map){
 }
 
 async function checkSupabaseConnection(){
-  if(!sbReady||!sb){setSyncStatus('offline');return false;}
-  try{const{error}=await sb.from('events').select('id').limit(1);if(error)throw error;setSyncStatus('connected');toast('✅ Supabase متصل وشغال!','ok');return true;}
-  catch(e){setSyncStatus('error');toast('❌ خطأ: '+e.message,'err');return false;}
+  try{
+    const data=await sbREST('GET','events',null,'select=id&limit=1');
+    sbReady=true;sb=true;
+    setSyncStatus('connected');
+    toast('✅ Supabase متصل وشغال!','ok');
+    return true;
+  }catch(e){
+    setSyncStatus('error');
+    toast('❌ خطأ في الاتصال: '+e.message,'err');
+    return false;
+  }
 }
 
 function openSyncPanel(){
