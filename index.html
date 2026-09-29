@@ -3132,17 +3132,167 @@ function _setupVioExports(){
   };
 }
 
-// Global fallback — يشتغل حتى لو _setupVioExports لم تُستدعى بعد
-function vioWordNow(){
-  const viols=_getFilteredVio();const title='تقرير المخالفات';
+async function vioWordNow(){
+  const viols=_getFilteredVio();
   if(!viols.length){toast('لا توجد مخالفات','err');return;}
-  const html=_buildVioHTML(viols,title);
-  const doc=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name=ProgId content=Word.Document><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--></head>${html.slice(html.indexOf('<body'))}</html>`;
-  const b=new Blob(['\ufeff'+doc],{type:'application/vnd.ms-word;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`تقرير_المخالفات_${td()}.doc`;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  toast(`📘 تم تنزيل Word — ${viols.length} مخالفة ✅`,'ok');
-  logAudit('تصدير Word',title,'—',viols.length+' سجل');
+  toast('جاري إنشاء ملف Word...','inf');
+  try{
+    await loadZipL();
+    // ── جمع الصور وتحويلها ──
+    const imgRefs=[];let imgIdx=0;
+    const vioImgIds=viols.map(v=>{
+      const ids=[];
+      for(const img of(v.images||[])){
+        if(img.src?.startsWith('data:')){
+          const m=img.src.match(/^data:image\/(\w+);base64,(.+)$/);
+          if(m){
+            const ext=m[1]==='jpeg'?'jpg':m[1];
+            const rId='rImg'+imgIdx++;
+            imgRefs.push({rId,data:m[2],ext});ids.push({rId,ext});
+          }
+        }
+      }
+      return ids;
+    });
+
+    // ── دوال مساعدة للـ XML ──
+    const xe=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+    const p=(text,opts={})=>{
+      const{bold=false,color='000000',sz=22,italic=false}=opts;
+      const lines=(text||'').split('\n');
+      return lines.map(line=>`<w:p><w:pPr><w:bidi/><w:jc w:val="right"/><w:spacing w:after="80"/></w:pPr>
+        <w:r><w:rPr><w:rtl/>${bold?'<w:b/>':''}${italic?'<w:i/>':''}
+          ${color!=='000000'?`<w:color w:val="${color}"/>`:''}
+          <w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>
+          <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
+        </w:rPr><w:t xml:space="preserve">${xe(line)||' '}</w:t></w:r>
+      </w:p>`).join('');
+    };
+    const ph=()=>`<w:p><w:pPr><w:bidi/></w:pPr></w:p>`;
+    const pline=()=>`<w:p><w:pPr><w:bidi/><w:jc w:val="right"/><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="CBD5E1"/></w:pBdr></w:pPr><w:r><w:rPr><w:rtl/></w:rPr><w:t> </w:t></w:r></w:p>${ph()}`;
+    const pimg=(rId,wi,hi,n)=>`<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:drawing>
+      <wp:inline distT="0" distB="114400" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+        <wp:extent cx="${wi}" cy="${hi}"/><wp:docPr id="${n}" name="Pic${n}"/>
+        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+            <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+              <pic:nvPicPr><pic:cNvPr id="${n}" name="Pic${n}"/><pic:cNvPicPr/></pic:nvPicPr>
+              <pic:blipFill>
+                <a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+                <a:stretch><a:fillRect/></a:stretch>
+              </pic:blipFill>
+              <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${wi}" cy="${hi}"/></a:xfrm>
+                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              </pic:spPr>
+            </pic:pic>
+          </a:graphicData>
+        </a:graphic>
+      </wp:inline>
+    </w:drawing></w:r></w:p>`;
+
+    // ── بناء محتوى الوثيقة ──
+    let body='';
+    body+=p('🏭 غرفة المراقبة المركزية',{bold:true,color:'1E3A8A',sz:36});
+    body+=p('تقرير المخالفات',{bold:true,color:'1E40AF',sz:28});
+    body+=p(`إجمالي: ${viols.length} مخالفة  |  التاريخ: ${td()}  |  أعده: ${CUSER?.name||'—'}`,{color:'64748B',sz:18});
+    body+=ph();body+=pline();
+
+    let picN=1;
+    viols.forEach((v,vi)=>{
+      const stmt=v.followUpStmt||v.statement?.text||'';
+      const ids=vioImgIds[vi];
+      // العنوان
+      body+=p(`${v.id}   ${v.type||'—'}   ${v.severity||'—'}   ${v.status||'—'}`,{bold:true,color:'1E3A8A',sz:26});
+      body+=p(`📅 ${v.date||'—'}   |   🏭 ${v.factory||'—'}`,{sz:22});
+      if(v.concernedParty)body+=p(`👤 الشخص المعني: ${v.concernedParty}`,{sz:22});
+      if(v.followUpResponsible)body+=p(`👷 المسؤول: ${v.followUpResponsible}`,{sz:22});
+      body+=ph();
+      if(v.description){body+=p('📝 وصف المخالفة:',{bold:true,color:'1E40AF',sz:22});body+=p(v.description,{sz:21});}
+      if(v.actionTaken){body+=p('✅ الإجراء المتخذ:',{bold:true,color:'15803D',sz:22});body+=p(v.actionTaken,{sz:21});}
+      if(v.notes){body+=p('📋 الملاحظات:',{bold:true,color:'854D0E',sz:22});body+=p(v.notes,{sz:21});}
+      if(stmt){body+=p('📄 المتابعة والإفادة:',{bold:true,color:'7C3AED',sz:22});body+=p(stmt,{sz:21});}
+      if(v.statement?.party)body+=p(`مقدم الإفادة: ${v.statement.party}`,{color:'6D28D9',sz:20,italic:true});
+      if(ids.length){
+        body+=ph();body+=p('📷 صور المخالفة:',{bold:true,color:'1E40AF',sz:22});
+        ids.forEach(({rId})=>{body+=pimg(rId,2400000,1800000,picN++);});
+      }
+      body+=pline();
+    });
+
+    // ── ملفات الـ DOCX ──
+    const docXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+<w:body>${body}
+<w:sectPr><w:bidi/><w:textDirection w:val="rl"/>
+<w:pgSz w:w="12240" w:h="15840"/>
+<w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/></w:sectPr>
+</w:body></w:document>`;
+
+    const relsXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId0" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rSet" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
+  ${imgRefs.map(ir=>`<Relationship Id="${ir.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${ir.rId}.${ir.ext}"/>`).join('\n  ')}
+</Relationships>`;
+
+    const ctXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="jpg" ContentType="image/jpeg"/>
+<Default Extension="jpeg" ContentType="image/jpeg"/>
+<Default Extension="png" ContentType="image/png"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
+</Types>`;
+
+    const rootRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+    const settingsXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:bidi/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat>
+</w:settings>`;
+
+    const stylesXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:docDefaults><w:rPrDefault><w:rPr>
+  <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
+  <w:sz w:val="22"/><w:szCs w:val="22"/>
+  <w:lang w:val="ar-EG" w:bidi="ar-SA"/>
+</w:rPr></w:rPrDefault>
+<w:pPrDefault><w:pPr><w:bidi/><w:jc w:val="right"/></w:pPr></w:pPrDefault>
+</w:docDefaults>
+</w:styles>`;
+
+    // ── تعبئة الـ ZIP ──
+    const zip=new JSZip();
+    zip.file('[Content_Types].xml',ctXML);
+    zip.file('_rels/.rels',rootRels);
+    zip.file('word/document.xml',docXML);
+    zip.file('word/_rels/document.xml.rels',relsXML);
+    zip.file('word/settings.xml',settingsXML);
+    zip.file('word/styles.xml',stylesXML);
+    for(const ir of imgRefs){
+      const bin=atob(ir.data);const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      zip.file(`word/media/${ir.rId}.${ir.ext}`,bytes,{binary:true});
+    }
+    const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`تقرير_المخالفات_${td()}.docx`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast(`📘 تم تنزيل Word .docx — ${viols.length} مخالفة مع الصور ✅`,'ok');
+    logAudit('تصدير Word .docx','تقرير المخالفات','—',viols.length+' سجل');
+  }catch(e){console.error(e);toast('خطأ في إنشاء Word: '+e.message,'err');}
 }
 function vioPrintNow(){const v=_getFilteredVio();if(!v.length){toast('لا توجد مخالفات','err');return;}const w=window.open('','_blank','width=920,height=750');if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return;}w.document.open();w.document.write(_buildVioHTML(v,'تقرير المخالفات'));w.document.close();w.focus();setTimeout(()=>w.print(),700);}
 
