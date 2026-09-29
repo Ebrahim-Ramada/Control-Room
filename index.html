@@ -3064,188 +3064,187 @@ function exportBar(dataFn, title, tableId=''){
   </div>`;
 }
 
+
 // ══════════════════════════════════════════════════
-//  📊 VIOLATION EXPORT ENGINE — كل الصيغ مع الصور
+//  📊 VIOLATIONS TABLE EXPORT — جدول احترافي
 // ══════════════════════════════════════════════════
 
-function _buildVioHTML(viols,title){
-  const sevC={حرجة:'#dc2626',عالية:'#ea580c',متوسطة:'#d97706',منخفضة:'#16a34a'};
-  const cards=viols.map(v=>{
-    const stmt=v.followUpStmt||v.statement?.text||'';
-    const imgs=(v.images||[]).filter(i=>i&&i.src&&i.src.startsWith('data:')).slice(0,8);
-    const sev=v.severity||'متوسطة';
-    return`<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px;page-break-inside:avoid">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap">
-        <span style="font-size:14pt;font-weight:900;color:#1e3a8a">${v.id}</span>
-        <span style="background:${sevC[sev]||'#d97706'};color:#fff;padding:2px 10px;border-radius:20px;font-size:9pt;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact">${sev}</span>
-        <span style="background:#f1f5f9;padding:2px 10px;border-radius:20px;font-size:9pt">${v.status||'—'}</span>
-        <span style="margin-right:auto;font-size:9pt;color:#64748b">${v.date||''} | ${v.factory||''}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-        <div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">نوع المخالفة</div><div style="font-size:10pt;font-weight:600">${v.type||'—'}</div></div>
-        <div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">المصنع</div><div style="font-size:10pt;font-weight:600">${v.factory||'—'}</div></div>
-        <div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">الشخص المعني</div><div style="font-size:10pt;font-weight:600">${v.concernedParty||'—'}</div></div>
-        ${v.followUpResponsible?`<div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">المسؤول</div><div style="font-size:10pt">${v.followUpResponsible}</div></div>`:''}
-      </div>
-      ${v.description?`<div style="background:#f0f9ff;border-right:3px solid #3b82f6;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#1e40af;margin-bottom:4px">📝 وصف المخالفة</div><div style="font-size:10pt;line-height:1.7">${v.description.replace(/\n/g,'<br>')}</div></div>`:''}
-      ${v.actionTaken?`<div style="background:#f0fdf4;border-right:3px solid #22c55e;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#15803d;margin-bottom:4px">✅ الإجراء المتخذ</div><div style="font-size:10pt;line-height:1.7">${v.actionTaken.replace(/\n/g,'<br>')}</div></div>`:''}
-      ${v.notes?`<div style="background:#fefce8;border-right:3px solid #eab308;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#854d0e;margin-bottom:4px">📋 الملاحظات</div><div style="font-size:10pt;line-height:1.7">${v.notes.replace(/\n/g,'<br>')}</div></div>`:''}
-      ${stmt?`<div style="background:#faf5ff;border-right:3px solid #7c3aed;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#7c3aed;margin-bottom:4px">📄 المتابعة والإفادة</div><div style="font-size:10pt;line-height:1.7">${stmt.replace(/\n/g,'<br>')}</div>${v.statement?.party?`<div style="font-size:9pt;color:#6d28d9;margin-top:4px">مقدم الإفادة: <strong>${v.statement.party}</strong></div>`:''}${v.statement?.status?`<div style="font-size:9pt;color:#6d28d9">الحالة: <strong>${v.statement.status}</strong></div>`:''}</div>`:''}
-      ${imgs.length?`<div style="background:#f8fafc;border-radius:6px;padding:8px 12px"><div style="font-size:9pt;font-weight:700;color:#1e40af;margin-bottom:8px">📷 صور المخالفة (${imgs.length})</div><div style="display:flex;flex-wrap:wrap;gap:8px">${imgs.map(img=>`<img src="${img.src}" style="width:130px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0">`).join('')}</div></div>`:''}
-    </div>`;
-  }).join('');
-  return`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${title}</title><style>@page{size:A4;margin:1.5cm}body{font-family:Arial,sans-serif;direction:rtl;color:#1e293b;margin:0;font-size:10pt}.hdr{background:#1e3a8a;color:#fff;padding:18px;text-align:center;margin-bottom:18px;print-color-adjust:exact;-webkit-print-color-adjust:exact}.hdr h1{margin:0 0 4px;font-size:17pt}.hdr h2{margin:0 0 4px;font-size:12pt;opacity:.9}.hdr p{margin:0;font-size:8pt;opacity:.7}.ftr{text-align:center;margin-top:18px;font-size:8pt;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style></head><body>
-<div class="hdr"><h1>🏭 غرفة المراقبة المركزية</h1><h2>${title}</h2><p>إجمالي: ${viols.length} مخالفة | ${td()} | ${CUSER?.name||'—'}</p></div>
-${cards}<div class="ftr">نظام غرفة المراقبة المركزية | ${new Date().toLocaleString('ar-EG')}</div></body></html>`;
+function _buildVioTableHTML(viols, title){
+  const COLS=[
+    {k:'#',       get:(_,i)=>i+1,        w:'4%'},
+    {k:'التاريخ', get:v=>v.date||'',     w:'8%'},
+    {k:'المصنع',  get:v=>v.factory||'',  w:'9%'},
+    {k:'نوع المخالفة',get:v=>v.type||'',w:'10%'},
+    {k:'الوصف / الهدف',get:v=>v.description||'',w:'20%'},
+    {k:'الإجراء المتخذ',get:v=>v.actionTaken||'',w:'18%'},
+    {k:'المتابعة والإفادة',get:v=>v.followUpStmt||v.statement?.text||'',w:'21%'},
+    {k:'ملاحظات',  get:v=>v.notes||'',  w:'10%'},
+  ];
+  const rows=viols.map((v,i)=>`
+    <tr style="background:${i%2===0?'#ffffff':'#f0f7ff'}">
+      ${COLS.map(c=>`<td style="padding:6px 8px;border:1px solid #bfdbfe;font-size:9pt;line-height:1.5;vertical-align:top">${(c.get(v,i)+'').replace(/\n/g,'<br>')}</td>`).join('')}
+    </tr>`).join('');
+
+  return`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+<style>
+  @page{size:A4 landscape;margin:1cm}
+  body{font-family:'Arial',sans-serif;direction:rtl;color:#1e293b;margin:0;padding:0;font-size:10pt}
+  .report-wrap{padding:10px}
+  .hdr-box{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:14px 20px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .hdr-title{font-size:22pt;font-weight:900;letter-spacing:1px}
+  .hdr-sub{font-size:9pt;opacity:.8;margin-top:4px}
+  .hdr-logo{font-size:40px}
+  .meta-bar{background:#1e40af;color:#fff;padding:6px 16px;font-size:9pt;display:flex;gap:20px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  table{border-collapse:collapse;width:100%;margin-top:0;font-size:9pt}
+  thead tr{background:#1e3a8a;color:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  thead th{padding:8px 8px;border:1px solid #1e40af;text-align:right;font-size:9pt;font-weight:700;white-space:nowrap}
+  tbody tr:nth-child(even){background:#dbeafe}
+  td{padding:6px 8px;border:1px solid #bfdbfe;vertical-align:top;line-height:1.5}
+  .ftr{text-align:center;font-size:8pt;color:#64748b;margin-top:10px;padding-top:6px;border-top:1px solid #e2e8f0}
+  @media print{body{margin:0}.no-print{display:none}}
+</style>
+</head><body>
+<div class="report-wrap">
+  <div class="hdr-box">
+    <div>
+      <div class="hdr-title">⚠️ ${title||'المخالفات'}</div>
+      <div class="hdr-sub">نظام غرفة المراقبة المركزية — Central Control Room Pro</div>
+    </div>
+    <div class="hdr-logo">🏭</div>
+  </div>
+  <div class="meta-bar">
+    <span>📊 إجمالي المخالفات: <strong>${viols.length}</strong></span>
+    <span>📅 التاريخ: <strong>${td()}</strong></span>
+    <span>👤 أعده: <strong>${CUSER?.name||'—'}</strong></span>
+  </div>
+  <table>
+    <thead><tr>${COLS.map(c=>`<th style="width:${c.w}">${c.k}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="ftr">نظام غرفة المراقبة المركزية &nbsp;|&nbsp; ${new Date().toLocaleString('ar-EG')} &nbsp;|&nbsp; إجمالي: ${viols.length} مخالفة</div>
+</div>
+</body></html>`;
 }
 
-function _getFilteredVio(){
-  const q=(document.getElementById('vi-q')?.value||'').toLowerCase();
-  const fac=document.getElementById('vi-fac')?.value||'';
-  const typ=document.getElementById('vi-typ')?.value||'';
-  const sev2=document.getElementById('vi-sev')?.value||'';
-  const sta=document.getElementById('vi-sta')?.value||'';
-  let vs=[...DB.violations].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(q)vs=vs.filter(v=>JSON.stringify(v).toLowerCase().includes(q));
-  if(fac)vs=vs.filter(v=>v.factory===fac);
-  if(typ)vs=vs.filter(v=>v.type===typ);
-  if(sev2)vs=vs.filter(v=>v.severity===sev2);
-  if(sta)vs=vs.filter(v=>v.status===sta);
-  return vs;
+// ── طباعة / PDF جدولي ──
+function vioPrintNow(){
+  const viols=_getFilteredVio();
+  if(!viols.length){toast('لا توجد مخالفات','err');return;}
+  const w=window.open('','_blank','width=1100,height=750');
+  if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return;}
+  w.document.open();w.document.write(_buildVioTableHTML(viols,'المخالفات'));w.document.close();
+  w.focus();setTimeout(()=>w.print(),700);
+  toast(`🖨️ ${viols.length} مخالفة — جدول احترافي`,'ok');
+  logAudit('طباعة جدول المخالفات','—','—',viols.length+' سجل');
 }
 
-function _setupVioExports(){
-  // Called after filterViols - updates the window functions with current filtered data
-  const viols=_getFilteredVio();const title='تقرير المخالفات';
-  const ow=html=>{const w=window.open('','_blank','width=920,height=750');if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return null;}w.document.open();w.document.write(html);w.document.close();w.focus();return w;};
-  window._vioPrint=()=>{if(!viols.length){toast('لا توجد مخالفات','err');return;}const w=ow(_buildVioHTML(viols,title));if(w)setTimeout(()=>w.print(),700);toast(`🖨️ ${viols.length} مخالفة`,'ok');};
-  window._vioPDF=()=>{if(!viols.length){toast('لا توجد مخالفات','err');return;}const w=ow(_buildVioHTML(viols,title));if(w)setTimeout(()=>w.print(),700);toast('احفظ كـ PDF من نافذة الطباعة ✅','ok');};
-  window._vioWord=()=>{
-    if(!viols.length){toast('لا توجد مخالفات','err');return;}
-    const html=_buildVioHTML(viols,title);
-    const doc=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name=ProgId content=Word.Document><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--></head>${html.slice(html.indexOf('<body'))}</html>`;
-    const b=new Blob(['\ufeff'+doc],{type:'application/vnd.ms-word;charset=utf-8'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`تقرير_المخالفات_${td()}.doc`;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    toast(`📘 تم تنزيل Word — ${viols.length} مخالفة مع الصور والإفادات ✅`,'ok');
-    logAudit('تصدير Word المخالفات',title,'—',viols.length+' سجل');
-  };
-}
-
+// ── Word .docx جدولي ──
 async function vioWordNow(){
   const viols=_getFilteredVio();
   if(!viols.length){toast('لا توجد مخالفات','err');return;}
-  toast('جاري إنشاء ملف Word...','inf');
+  toast('جاري إنشاء Word...','inf');
   try{
     await loadZipL();
-    // ── جمع الصور وتحويلها ──
-    const imgRefs=[];let imgIdx=0;
-    const vioImgIds=viols.map(v=>{
-      const ids=[];
-      for(const img of(v.images||[])){
-        if(img.src?.startsWith('data:')){
-          const m=img.src.match(/^data:image\/(\w+);base64,(.+)$/);
-          if(m){
-            const ext=m[1]==='jpeg'?'jpg':m[1];
-            const rId='rImg'+imgIdx++;
-            imgRefs.push({rId,data:m[2],ext});ids.push({rId,ext});
-          }
-        }
-      }
-      return ids;
-    });
-
-    // ── دوال مساعدة للـ XML ──
-    const xe=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-    const p=(text,opts={})=>{
-      const{bold=false,color='000000',sz=22,italic=false}=opts;
-      const lines=(text||'').split('\n');
-      return lines.map(line=>`<w:p><w:pPr><w:bidi/><w:jc w:val="right"/><w:spacing w:after="80"/></w:pPr>
-        <w:r><w:rPr><w:rtl/>${bold?'<w:b/>':''}${italic?'<w:i/>':''}
-          ${color!=='000000'?`<w:color w:val="${color}"/>`:''}
+    const xe=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const COLS=[
+      {k:'#',       get:(_,i)=>(i+1)+''},
+      {k:'التاريخ', get:v=>v.date||''},
+      {k:'المصنع',  get:v=>v.factory||''},
+      {k:'نوع المخالفة',get:v=>v.type||''},
+      {k:'الوصف',   get:v=>v.description||''},
+      {k:'الإجراء المتخذ',get:v=>v.actionTaken||''},
+      {k:'المتابعة والإفادة',get:v=>v.followUpStmt||v.statement?.text||''},
+      {k:'ملاحظات', get:v=>v.notes||''},
+    ];
+    const wCell=(text,opts={})=>{
+      const{bold=false,bg='',color='000000',center=false,sz=18}=opts;
+      return`<w:tc><w:tcPr>${bg?`<w:shd w:val="clear" w:color="auto" w:fill="${bg}"/>`:''}
+        <w:vAlign w:val="top"/>
+      </w:tcPr>
+      <w:p><w:pPr><w:bidi/><w:jc w:val="${center?'center':'right'}"/><w:spacing w:after="60"/></w:pPr>
+        ${(xe(text)||' ').split('\n').map((line,li)=>`${li>0?'<w:r><w:rPr><w:rtl/></w:rPr><w:br/></w:r>':''}<w:r><w:rPr><w:rtl/>${bold?'<w:b/>':''}
+          <w:color w:val="${color}"/>
           <w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>
           <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
-        </w:rPr><w:t xml:space="preserve">${xe(line)||' '}</w:t></w:r>
-      </w:p>`).join('');
+        </w:rPr><w:t xml:space="preserve">${xe(line)||' '}</w:t></w:r>`).join('')}
+      </w:p></w:tc>`;
     };
-    const ph=()=>`<w:p><w:pPr><w:bidi/></w:pPr></w:p>`;
-    const pline=()=>`<w:p><w:pPr><w:bidi/><w:jc w:val="right"/><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="CBD5E1"/></w:pBdr></w:pPr><w:r><w:rPr><w:rtl/></w:rPr><w:t> </w:t></w:r></w:p>${ph()}`;
-    const pimg=(rId,wi,hi,n)=>`<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:drawing>
-      <wp:inline distT="0" distB="114400" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
-        <wp:extent cx="${wi}" cy="${hi}"/><wp:docPr id="${n}" name="Pic${n}"/>
-        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-            <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-              <pic:nvPicPr><pic:cNvPr id="${n}" name="Pic${n}"/><pic:cNvPicPr/></pic:nvPicPr>
-              <pic:blipFill>
-                <a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
-                <a:stretch><a:fillRect/></a:stretch>
-              </pic:blipFill>
-              <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${wi}" cy="${hi}"/></a:xfrm>
-                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-              </pic:spPr>
-            </pic:pic>
-          </a:graphicData>
-        </a:graphic>
-      </wp:inline>
-    </w:drawing></w:r></w:p>`;
 
-    // ── بناء محتوى الوثيقة ──
-    let body='';
-    body+=p('🏭 غرفة المراقبة المركزية',{bold:true,color:'1E3A8A',sz:36});
-    body+=p('تقرير المخالفات',{bold:true,color:'1E40AF',sz:28});
-    body+=p(`إجمالي: ${viols.length} مخالفة  |  التاريخ: ${td()}  |  أعده: ${CUSER?.name||'—'}`,{color:'64748B',sz:18});
-    body+=ph();body+=pline();
+    // Header row
+    const hdrRow=`<w:tr><w:trPr><w:tblHeader/><w:trHeight w:val="500" w:hRule="atLeast"/>
+      <w:shd w:val="clear" w:color="auto" w:fill="1E3A8A"/></w:trPr>
+      ${COLS.map(c=>wCell(c.k,{bold:true,bg:'1E3A8A',color:'FFFFFF',center:true,sz:18})).join('')}
+    </w:tr>`;
 
-    let picN=1;
-    viols.forEach((v,vi)=>{
-      const stmt=v.followUpStmt||v.statement?.text||'';
-      const ids=vioImgIds[vi];
-      // العنوان
-      body+=p(`${v.id}   ${v.type||'—'}   ${v.severity||'—'}   ${v.status||'—'}`,{bold:true,color:'1E3A8A',sz:26});
-      body+=p(`📅 ${v.date||'—'}   |   🏭 ${v.factory||'—'}`,{sz:22});
-      if(v.concernedParty)body+=p(`👤 الشخص المعني: ${v.concernedParty}`,{sz:22});
-      if(v.followUpResponsible)body+=p(`👷 المسؤول: ${v.followUpResponsible}`,{sz:22});
-      body+=ph();
-      if(v.description){body+=p('📝 وصف المخالفة:',{bold:true,color:'1E40AF',sz:22});body+=p(v.description,{sz:21});}
-      if(v.actionTaken){body+=p('✅ الإجراء المتخذ:',{bold:true,color:'15803D',sz:22});body+=p(v.actionTaken,{sz:21});}
-      if(v.notes){body+=p('📋 الملاحظات:',{bold:true,color:'854D0E',sz:22});body+=p(v.notes,{sz:21});}
-      if(stmt){body+=p('📄 المتابعة والإفادة:',{bold:true,color:'7C3AED',sz:22});body+=p(stmt,{sz:21});}
-      if(v.statement?.party)body+=p(`مقدم الإفادة: ${v.statement.party}`,{color:'6D28D9',sz:20,italic:true});
-      if(ids.length){
-        body+=ph();body+=p('📷 صور المخالفة:',{bold:true,color:'1E40AF',sz:22});
-        ids.forEach(({rId})=>{body+=pimg(rId,2400000,1800000,picN++);});
-      }
-      body+=pline();
-    });
+    // Data rows
+    const dataRows=viols.map((v,i)=>{
+      const bg=i%2===0?'FFFFFF':'DBEAFE';
+      return`<w:tr><w:trPr><w:trHeight w:val="300" w:hRule="atLeast"/>
+        <w:shd w:val="clear" w:color="auto" w:fill="${bg}"/>
+      </w:trPr>
+      ${COLS.map(c=>wCell(c.get(v,i),{bg,sz:17})).join('')}
+      </w:tr>`;
+    }).join('');
 
-    // ── ملفات الـ DOCX ──
+    const tblXML=`<w:tbl>
+      <w:tblPr>
+        <w:bidiVisual/>
+        <w:tblW w:w="10000" w:type="pct"/>
+        <w:tblBorders>
+          <w:top w:val="single" w:sz="4" w:space="0" w:color="1E40AF"/>
+          <w:left w:val="single" w:sz="4" w:space="0" w:color="1E40AF"/>
+          <w:bottom w:val="single" w:sz="4" w:space="0" w:color="1E40AF"/>
+          <w:right w:val="single" w:sz="4" w:space="0" w:color="1E40AF"/>
+          <w:insideH w:val="single" w:sz="2" w:space="0" w:color="BFDBFE"/>
+          <w:insideV w:val="single" w:sz="2" w:space="0" w:color="BFDBFE"/>
+        </w:tblBorders>
+        <w:tblCellMar>
+          <w:top w:w="60" w:type="dxa"/>
+          <w:left w:w="80" w:type="dxa"/>
+          <w:bottom w:w="60" w:type="dxa"/>
+          <w:right w:w="80" w:type="dxa"/>
+        </w:tblCellMar>
+      </w:tblPr>
+      <w:tblGrid>${COLS.map(()=>'<w:gridCol w:w="1100"/>').join('')}</w:tblGrid>
+      ${hdrRow}${dataRows}
+    </w:tbl>`;
+
+    // Title paragraph
+    const titleP=`<w:p><w:pPr><w:bidi/><w:jc w:val="center"/><w:spacing w:after="120"/></w:pPr>
+      <w:r><w:rPr><w:rtl/><w:b/><w:color w:val="1E3A8A"/><w:sz w:val="36"/><w:szCs w:val="36"/>
+        <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
+      </w:rPr><w:t>⚠️ المخالفات — غرفة المراقبة المركزية</w:t></w:r>
+    </w:p>
+    <w:p><w:pPr><w:bidi/><w:jc w:val="center"/><w:spacing w:after="200"/></w:pPr>
+      <w:r><w:rPr><w:rtl/><w:color w:val="475569"/><w:sz w:val="20"/><w:szCs w:val="20"/>
+        <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
+      </w:rPr><w:t>إجمالي: ${viols.length} مخالفة  |  التاريخ: ${td()}  |  أعده: ${CUSER?.name||'—'}</w:t></w:r>
+    </w:p>`;
+
     const docXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
-  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-<w:body>${body}
-<w:sectPr><w:bidi/><w:textDirection w:val="rl"/>
-<w:pgSz w:w="12240" w:h="15840"/>
-<w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/></w:sectPr>
+<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>
+${titleP}
+${tblXML}
+<w:p><w:pPr><w:bidi/></w:pPr></w:p>
+<w:sectPr>
+  <w:bidi/>
+  <w:pgSz w:w="20160" w:h="15840" w:orient="landscape"/>
+  <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720"/>
+</w:sectPr>
 </w:body></w:document>`;
 
     const relsXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId0" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
   <Relationship Id="rSet" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
-  ${imgRefs.map(ir=>`<Relationship Id="${ir.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${ir.rId}.${ir.ext}"/>`).join('\n  ')}
 </Relationships>`;
 
     const ctXML=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
-<Default Extension="jpg" ContentType="image/jpeg"/>
-<Default Extension="jpeg" ContentType="image/jpeg"/>
-<Default Extension="png" ContentType="image/png"/>
 <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
@@ -3265,14 +3264,12 @@ async function vioWordNow(){
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
 <w:docDefaults><w:rPrDefault><w:rPr>
   <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
-  <w:sz w:val="22"/><w:szCs w:val="22"/>
+  <w:sz w:val="18"/><w:szCs w:val="18"/>
   <w:lang w:val="ar-EG" w:bidi="ar-SA"/>
 </w:rPr></w:rPrDefault>
 <w:pPrDefault><w:pPr><w:bidi/><w:jc w:val="right"/></w:pPr></w:pPrDefault>
-</w:docDefaults>
-</w:styles>`;
+</w:docDefaults></w:styles>`;
 
-    // ── تعبئة الـ ZIP ──
     const zip=new JSZip();
     zip.file('[Content_Types].xml',ctXML);
     zip.file('_rels/.rels',rootRels);
@@ -3280,21 +3277,16 @@ async function vioWordNow(){
     zip.file('word/_rels/document.xml.rels',relsXML);
     zip.file('word/settings.xml',settingsXML);
     zip.file('word/styles.xml',stylesXML);
-    for(const ir of imgRefs){
-      const bin=atob(ir.data);const bytes=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-      zip.file(`word/media/${ir.rId}.${ir.ext}`,bytes,{binary:true});
-    }
     const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download=`تقرير_المخالفات_${td()}.docx`;
+    a.download=`جدول_المخالفات_${td()}.docx`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    toast(`📘 تم تنزيل Word .docx — ${viols.length} مخالفة مع الصور ✅`,'ok');
-    logAudit('تصدير Word .docx','تقرير المخالفات','—',viols.length+' سجل');
-  }catch(e){console.error(e);toast('خطأ في إنشاء Word: '+e.message,'err');}
+    toast(`📘 تم تنزيل Word — جدول ${viols.length} مخالفة ✅`,'ok');
+    logAudit('تصدير Word جدول','المخالفات','—',viols.length+' سجل');
+  }catch(e){console.error(e);toast('خطأ: '+e.message,'err');}
 }
-function vioPrintNow(){const v=_getFilteredVio();if(!v.length){toast('لا توجد مخالفات','err');return;}const w=window.open('','_blank','width=920,height=750');if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return;}w.document.open();w.document.write(_buildVioHTML(v,'تقرير المخالفات'));w.document.close();w.focus();setTimeout(()=>w.print(),700);}
+
 
 // ── DATA EXTRACTORS ──
 function evData(){
