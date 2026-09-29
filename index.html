@@ -3042,23 +3042,26 @@ function loadLib(varName, url){
 // Generate export toolbar HTML for any page
 function exportBar(dataFn, title, tableId=''){
   const isVio=dataFn==='viData';
+  if(isVio){
+    return `<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
+      <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
+      <button class="btn bg btn-xs" onclick="vioPrintNow()" title="طباعة جدول احترافي">🖨️ طباعة</button>
+      <button class="btn bg btn-xs" onclick="vioPrintNow()" title="PDF - طباعة واحفظ كـ PDF">📕 PDF</button>
+      <button class="btn bg btn-xs" onclick="vioWordNow()" title="Word .docx - يعمل على موبايل ولاب" style="color:var(--blue2);border-color:var(--blue);font-weight:800">📘 Word ⬇️</button>
+      <button class="btn bg btn-xs" onclick="vioExcelNow()" title="Excel">📊 Excel</button>
+      <button class="btn bg btn-xs" onclick="vioCSVNow()" title="CSV">📄 CSV</button>
+      <button class="btn bg btn-xs" onclick="vioPPTXNow()" title="PowerPoint">📙 PPT</button>
+      ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')">📑 جدول</button>`:''}
+    </div>`;
+  }
   return `<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
     <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
-    ${isVio?`
-    <button class="btn bg btn-xs" onclick="vioPrintNow()" title="طباعة مفصلة مع الصور">🖨️ طباعة</button>
-    <button class="btn bg btn-xs" onclick="vioPrintNow()" title="PDF مفصل">📕 PDF</button>
-    <button class="btn bg btn-xs" onclick="vioWordNow()" title="Word مع الصور والإفادات" style="color:var(--blue2);border-color:var(--blue);font-weight:800">📘 Word ⬇️</button>
-    <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')" title="PowerPoint">📙 PPT</button>
-    <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')" title="Excel">📊 Excel</button>
-    <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')" title="CSV">📄 CSV</button>
-    `:` 
     <button class="btn bg btn-xs" onclick="window.print()">🖨️ طباعة</button>
     <button class="btn bg btn-xs" onclick="expPDF(${dataFn}(),'${title}')">📕 PDF</button>
     <button class="btn bg btn-xs" onclick="expWord(${dataFn}(),'${title}')">📘 Word</button>
     <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')">📙 PPT</button>
     <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')">📊 Excel</button>
     <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')">📄 CSV</button>
-    `}
     <button class="btn bg btn-xs" onclick="expJSON(${dataFn}(),'${title}')">📋 JSON</button>
     ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')">📑 جدول</button>`:''}
   </div>`;
@@ -3124,6 +3127,24 @@ function _buildVioTableHTML(viols, title){
   <div class="ftr">نظام غرفة المراقبة المركزية &nbsp;|&nbsp; ${new Date().toLocaleString('ar-EG')} &nbsp;|&nbsp; إجمالي: ${viols.length} مخالفة</div>
 </div>
 </body></html>`;
+}
+
+// ── جلب المخالفات المفلترة ──
+function _getFilteredVio(){
+  try{
+    const q=(document.getElementById('vi-q')?.value||'').toLowerCase();
+    const fac=document.getElementById('vi-fac')?.value||'';
+    const typ=document.getElementById('vi-typ')?.value||'';
+    const sev2=document.getElementById('vi-sev')?.value||'';
+    const sta=document.getElementById('vi-sta')?.value||'';
+    let vs=[...DB.violations].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    if(q)vs=vs.filter(v=>JSON.stringify(v).toLowerCase().includes(q));
+    if(fac)vs=vs.filter(v=>v.factory===fac);
+    if(typ)vs=vs.filter(v=>v.type===typ);
+    if(sev2)vs=vs.filter(v=>v.severity===sev2);
+    if(sta)vs=vs.filter(v=>v.status===sta);
+    return vs;
+  }catch(e){return[...DB.violations];}
 }
 
 // ── طباعة / PDF جدولي ──
@@ -3287,6 +3308,48 @@ ${tblXML}
   }catch(e){console.error(e);toast('خطأ: '+e.message,'err');}
 }
 
+
+
+// ── Excel للمخالفات ──
+function vioExcelNow(){
+  const viols=_getFilteredVio();
+  if(!viols.length){toast('لا توجد مخالفات','err');return;}
+  const data=viols.map((v,i)=>({
+    '#':i+1,'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
+    'درجة الخطورة':v.severity||'','الحالة':v.status||'',
+    'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
+    'الشخص المعني':v.concernedParty||'','المسؤول':v.followUpResponsible||'',
+    'المتابعة والإفادة':v.followUpStmt||v.statement?.text||'',
+    'مقدم الإفادة':v.statement?.party||'','ملاحظات':v.notes||''
+  }));
+  expExcel(data,'جدول_المخالفات');
+}
+
+// ── CSV للمخالفات ──
+function vioCSVNow(){
+  const viols=_getFilteredVio();
+  if(!viols.length){toast('لا توجد مخالفات','err');return;}
+  const data=viols.map((v,i)=>({
+    '#':i+1,'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
+    'الخطورة':v.severity||'','الحالة':v.status||'',
+    'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
+    'المتابعة والإفادة':v.followUpStmt||v.statement?.text||'','ملاحظات':v.notes||''
+  }));
+  expCSV(data,'جدول_المخالفات');
+}
+
+// ── PowerPoint للمخالفات ──
+async function vioPPTXNow(){
+  const viols=_getFilteredVio();
+  if(!viols.length){toast('لا توجد مخالفات','err');return;}
+  const data=viols.map((v,i)=>({
+    '#':i+1,'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
+    'الخطورة':v.severity||'','الحالة':v.status||'',
+    'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
+    'المتابعة والإفادة':v.followUpStmt||v.statement?.text||'','ملاحظات':v.notes||''
+  }));
+  await expPPTX(data,'المخالفات');
+}
 
 // ── DATA EXTRACTORS ──
 function evData(){
