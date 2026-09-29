@@ -3045,22 +3045,22 @@ function exportBar(dataFn, title, tableId=''){
   return `<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
     <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
     ${isVio?`
-    <button class="btn bg btn-xs" onclick="window._vioPrint()" title="طباعة مفصلة">🖨️ طباعة</button>
-    <button class="btn bg btn-xs" onclick="window._vioPDF()" title="PDF مفصل">📕 PDF</button>
-    <button class="btn bg btn-xs" onclick="window._vioWord()" title="Word مفصل">📘 Word</button>
+    <button class="btn bg btn-xs" onclick="vioPrintNow()" title="طباعة مفصلة مع الصور">🖨️ طباعة</button>
+    <button class="btn bg btn-xs" onclick="vioPrintNow()" title="PDF مفصل">📕 PDF</button>
+    <button class="btn bg btn-xs" onclick="vioWordNow()" title="Word مع الصور والإفادات" style="color:var(--blue2);border-color:var(--blue);font-weight:800">📘 Word ⬇️</button>
     <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')" title="PowerPoint">📙 PPT</button>
     <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')" title="Excel">📊 Excel</button>
     <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')" title="CSV">📄 CSV</button>
     `:` 
-    <button class="btn bg btn-xs" onclick="window.print()" title="طباعة">🖨️ طباعة</button>
-    <button class="btn bg btn-xs" onclick="expPDF(${dataFn}(),'${title}')" title="PDF">📕 PDF</button>
-    <button class="btn bg btn-xs" onclick="expWord(${dataFn}(),'${title}')" title="Word">📘 Word</button>
-    <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')" title="PPT">📙 PPT</button>
-    <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')" title="Excel">📊 Excel</button>
-    <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')" title="CSV">📄 CSV</button>
+    <button class="btn bg btn-xs" onclick="window.print()">🖨️ طباعة</button>
+    <button class="btn bg btn-xs" onclick="expPDF(${dataFn}(),'${title}')">📕 PDF</button>
+    <button class="btn bg btn-xs" onclick="expWord(${dataFn}(),'${title}')">📘 Word</button>
+    <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')">📙 PPT</button>
+    <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')">📊 Excel</button>
+    <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')">📄 CSV</button>
     `}
-    <button class="btn bg btn-xs" onclick="expJSON(${dataFn}(),'${title}')" title="JSON">📋 JSON</button>
-    ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')" title="جدول">📑 جدول</button>`:''}
+    <button class="btn bg btn-xs" onclick="expJSON(${dataFn}(),'${title}')">📋 JSON</button>
+    ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')">📑 جدول</button>`:''}
   </div>`;
 }
 
@@ -3115,6 +3115,7 @@ function _getFilteredVio(){
 }
 
 function _setupVioExports(){
+  // Called after filterViols - updates the window functions with current filtered data
   const viols=_getFilteredVio();const title='تقرير المخالفات';
   const ow=html=>{const w=window.open('','_blank','width=920,height=750');if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return null;}w.document.open();w.document.write(html);w.document.close();w.focus();return w;};
   window._vioPrint=()=>{if(!viols.length){toast('لا توجد مخالفات','err');return;}const w=ow(_buildVioHTML(viols,title));if(w)setTimeout(()=>w.print(),700);toast(`🖨️ ${viols.length} مخالفة`,'ok');};
@@ -3123,13 +3124,27 @@ function _setupVioExports(){
     if(!viols.length){toast('لا توجد مخالفات','err');return;}
     const html=_buildVioHTML(viols,title);
     const doc=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name=ProgId content=Word.Document><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--></head>${html.slice(html.indexOf('<body'))}</html>`;
-    const b=new Blob(['﻿'+doc],{type:'application/vnd.ms-word;charset=utf-8'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`${title}_${td()}.doc`;
+    const b=new Blob(['\ufeff'+doc],{type:'application/vnd.ms-word;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`تقرير_المخالفات_${td()}.doc`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    toast(`📘 Word مع الصور (${viols.length} مخالفة) ✅`,'ok');
-    logAudit('Word',title,'—',viols.length+' سجل');
+    toast(`📘 تم تنزيل Word — ${viols.length} مخالفة مع الصور والإفادات ✅`,'ok');
+    logAudit('تصدير Word المخالفات',title,'—',viols.length+' سجل');
   };
 }
+
+// Global fallback — يشتغل حتى لو _setupVioExports لم تُستدعى بعد
+function vioWordNow(){
+  const viols=_getFilteredVio();const title='تقرير المخالفات';
+  if(!viols.length){toast('لا توجد مخالفات','err');return;}
+  const html=_buildVioHTML(viols,title);
+  const doc=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name=ProgId content=Word.Document><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--></head>${html.slice(html.indexOf('<body'))}</html>`;
+  const b=new Blob(['\ufeff'+doc],{type:'application/vnd.ms-word;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`تقرير_المخالفات_${td()}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(`📘 تم تنزيل Word — ${viols.length} مخالفة ✅`,'ok');
+  logAudit('تصدير Word',title,'—',viols.length+' سجل');
+}
+function vioPrintNow(){const v=_getFilteredVio();if(!v.length){toast('لا توجد مخالفات','err');return;}const w=window.open('','_blank','width=920,height=750');if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return;}w.document.open();w.document.write(_buildVioHTML(v,'تقرير المخالفات'));w.document.close();w.focus();setTimeout(()=>w.print(),700);}
 
 // ── DATA EXTRACTORS ──
 function evData(){
