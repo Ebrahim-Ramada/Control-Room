@@ -2360,163 +2360,11 @@ function autoMatch(col,type){const c=String(col||'').trim().toLowerCase();const 
 function renderImportCenter(){
   const el=document.getElementById('page-import-center');if(!el)return;
   el.innerHTML=`<div class="sh"><div class="sh-t">📥 مركز الاستيراد الجماعي</div></div>
-
-  <!-- ★ استيراد PowerPoint ★ -->
-  <div class="card" style="border:2px solid rgba(234,88,12,.6);background:rgba(234,88,12,.06);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <div style="font-size:42px">📊</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:900;color:#ea580c">استيراد مخالفات من PowerPoint</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.6">
-          يقرأ الجداول صفًا بصف — كل صف = مخالفة مع إفادتها الكاملة
-        </div>
-      </div>
-      <button onclick="openPPTXImport()" style="background:#ea580c;color:#fff;border:none;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:900;cursor:pointer;font-family:Cairo,Arial,sans-serif;white-space:nowrap;flex-shrink:0">
-        📊 استيراد من PowerPoint
-      </button>
-    </div>
-  </div>
-
-  <!-- Excel/CSV -->
   <div class="grid3" style="margin-bottom:16px">
-    ${[{ic:'⚠️',t:'استيراد مخالفات',s:'Excel/CSV',tp:'violations'},{ic:'📌',t:'استيراد أحداث',s:'Excel/CSV',tp:'events'},{ic:'🔍',t:'استيراد مراجعات',s:'Excel/CSV',tp:'reviews'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="openImpWiz('${c.tp}','excel')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
+    ${[{ic:'⚠️',t:'استيراد مخالفات',s:'Excel/CSV/Word',tp:'violations'},{ic:'📌',t:'استيراد أحداث',s:'Excel/CSV/Word',tp:'events'},{ic:'🔍',t:'استيراد مراجعات',s:'Excel/CSV/Word',tp:'reviews'}].map(c=>`<div class="card" style="cursor:pointer;text-align:center" onclick="openImpWiz('${c.tp}','excel')"><div style="font-size:32px">${c.ic}</div><div style="font-size:13px;font-weight:800;margin-top:8px">${c.t}</div><div style="font-size:11px;color:var(--muted)">${c.s}</div></div>`).join('')}
   </div>
-  <div class="card"><div class="ctitle" style="margin-bottom:12px">📋 قوالب Excel الجاهزة</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn bg btn-sm" onclick="dlTemplate('violations')">⬇️ قالب المخالفات</button><button class="btn bg btn-sm" onclick="dlTemplate('events')">⬇️ قالب الأحداث</button><button class="btn bg btn-sm" onclick="dlTemplate('reviews')">⬇️ قالب المراجعات</button></div></div>
+  <div class="card"><div class="ctitle" style="margin-bottom:12px">📋 قوالب Excel الجاهزة</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn bg btn-sm" onclick="dlTemplate('violations')">⬇️ قالب المخالفات</button><button class="btn bg btn-sm" onclick="dlTemplate('events')">⬇️ قالب الأحداث</button><button class="btn bg btn-sm" onclick="dlTemplate('reviews')">⬇️ قالب المراجعات</button></div><p style="font-size:11px;color:var(--muted);margin-top:10px">💡 حمّل القالب، عبّئه بالبيانات في Excel، ثم ارفعه للاستيراد التلقائي</p></div>
   ${_recentImportBatches()}`;
-}
-
-
-// ════════════════════════════════════════════
-//  📊 PPTX IMPORT SYSTEM
-// ════════════════════════════════════════════
-let PPT={file:null,records:[],batchId:''};
-const PPT_MAP={'#':'originalNum','م':'originalNum','رقم':'originalNum','التاريخ':'date','تاريخ':'date','المصنع':'factory','مصنع':'factory','نوع المخالفة':'type','النوع':'type','نوع':'type','المخالفة':'type','فئة المخالفة':'type','الوصف':'description','الهدف':'description','وصف المخالفة':'description','الإجراء المتخذ':'actionTaken','الإجراء':'actionTaken','الاجراء المتخذ':'actionTaken','الملاحظات':'notes','ملاحظات':'notes','المتابعة والإفادة':'followUpStmt','المتابعه والإفادة':'followUpStmt','المتابعة والافادة':'followUpStmt','المتابعه والافادة':'followUpStmt','المتابعة والإقالة':'followUpStmt','المتابعه والإقالة':'followUpStmt','المتابعة':'followUpStmt','المتابعه':'followUpStmt','الإفادة':'followUpStmt','الافادة':'followUpStmt','إفادة':'followUpStmt','الجهة':'concernedParty','المعني':'concernedParty','الخطورة':'severity','الخطوره':'severity'};
-function pptMC(n){if(!n)return null;const nr=s=>s.replace(/ه(?=\s|$)/g,'ة').replace(/[أإآ]/g,'ا').replace(/\s+/g,' ').trim();const s=nr(n);for(const[k,v]of Object.entries(PPT_MAP)){if(nr(k)===s)return v;}for(const[k,v]of Object.entries(PPT_MAP)){if(s.includes(nr(k))||nr(k).includes(s))return v;}return null;}
-function pptCT(tc){let t='';tc.querySelectorAll('p').forEach((p,i)=>{const pt=[...p.querySelectorAll('t')].map(x=>x.textContent).join('');if(i>0&&pt.trim())t+='\n';t+=pt;});return t.trim()||[...tc.querySelectorAll('t')].map(x=>x.textContent).join('').trim();}
-function pptND(s){if(!s)return'';const m=s.match(/(\d{1,4})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);if(!m)return s;let[,a,b,c]=m;if(a.length===4)return`${a}-${b.padStart(2,'0')}-${c.padStart(2,'0')}`;if(parseInt(c)<100)c='20'+c;return`${c}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`;}
-function loadZipLib(){return new Promise((res,rej)=>{if(window.JSZip){res();return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=res;s.onerror=()=>{const s2=document.createElement('script');s2.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s2.onload=res;s2.onerror=rej;document.body.appendChild(s2);};document.body.appendChild(s);});}
-function openPPTXImport(){PPT={file:null,records:[],batchId:'IMP-PPT-'+Date.now()};pptM(1);}
-function pptM(step){
-  const sb=`<div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:14px">${['📂 رفع','⚙️ تحليل','📋 مراجعة','✅ حفظ'].map((l,i)=>{const n=i+1;return`<div style="flex:1;padding:8px 4px;text-align:center;font-size:11px;font-weight:700;color:${step===n?'var(--blue2)':step>n?'var(--grn2)':'var(--muted)'};border-bottom:3px solid ${step===n?'var(--blue)':step>n?'var(--green)':'transparent'}">${step>n?'✓ ':''}${l}</div>`;}).join('')}</div>`;
-  if(step===1){
-    openModal('📊 استيراد مخالفات من PowerPoint',`${sb}
-    <div id="ppt-drop" onclick="document.getElementById('ppt-fi').click()" style="border:2px dashed var(--border);border-radius:12px;padding:28px;text-align:center;cursor:pointer;margin-bottom:12px">
-      <input type="file" id="ppt-fi" accept=".pptx" style="display:none" onchange="pptOF(this)">
-      <div style="font-size:40px;margin-bottom:8px">📊</div>
-      <div style="font-size:14px;font-weight:700">اسحب ملف .pptx أو اضغط للاختيار</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">.pptx فقط</div>
-    </div>
-    <div id="ppt-inf" style="display:none;padding:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);border-radius:8px;font-size:12px;color:var(--grn2);margin-bottom:10px"></div>
-    <div style="padding:8px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.8">📌 يقرأ الجداول صفًا بصف<br>📌 الإفادة والمتابعة تُحفظ تلقائياً مع كل مخالفة</div>`,[{label:'⚙️ تحليل ←',cls:'bp',fn:'pptSt()'}]);
-  }else if(step===2){
-    const b=document.getElementById('gmod-body');const f=document.getElementById('gmod-foot');
-    if(b)b.innerHTML=`${sb}<div style="text-align:center;padding:28px"><div style="font-size:40px;margin-bottom:10px">⚙️</div><div style="font-size:14px;font-weight:800;margin-bottom:8px">جاري التحليل...</div><div id="ppt-pt" style="font-size:12px;color:var(--muted);margin-bottom:8px">تحميل...</div><div class="prog" style="max-width:240px;margin:0 auto"><div class="prog-f" id="ppt-pb" style="width:0%;background:#ea580c"></div></div><div id="ppt-pp" style="font-size:13px;font-weight:700;color:#ea580c;margin-top:6px">0%</div></div>`;
-    if(f)f.innerHTML='';pptAn();
-  }else if(step===3){pptRv();}else if(step===4){pptSv();}
-}
-function pptOF(inp){const f=inp.files[0];if(!f||!f.name.endsWith('.pptx')){toast('.pptx فقط','err');return;}PPT.file=f;const i=document.getElementById('ppt-inf');if(i){i.style.display='block';i.innerHTML=`✅ <strong>${esc(f.name)}</strong> — ${(f.size/1024).toFixed(0)} KB`;}}
-function pptSt(){if(!PPT.file){toast('اختر ملف .pptx','err');return;}pptM(2);}
-function pptPrg(p,t){const b=document.getElementById('ppt-pb');const tx=document.getElementById('ppt-pt');const n=document.getElementById('ppt-pp');if(b)b.style.width=p+'%';if(tx)tx.textContent=t;if(n)n.textContent=p+'%';}
-async function pptAn(){
-  try{
-    pptPrg(10,'تحميل JSZip...');await loadZipLib();pptPrg(25,'قراءة الملف...');
-    const zip=await JSZip.loadAsync(PPT.file);pptPrg(40,'الشرائح...');
-    const sf=Object.keys(zip.files).filter(n=>n.match(/^ppt\/slides\/slide\d+\.xml$/)).sort((a,b)=>parseInt(a.match(/\d+/)[0])-parseInt(b.match(/\d+/)[0]));
-    if(!sf.length){toast('لا توجد شرائح','err');pptM(1);return;}
-    const parser=new DOMParser();const recs=[];
-    for(let si=0;si<sf.length;si++){
-      const slideNum=parseInt(sf[si].match(/\d+/)[0]);
-      pptPrg(40+Math.round((si/sf.length)*50),`شريحة ${slideNum}/${sf.length}...`);
-      const xStr=await zip.files[sf[si]].async('string');
-      const doc=parser.parseFromString(xStr,'text/xml');
-      doc.querySelectorAll('tbl').forEach(tbl=>{
-        const rows=[...tbl.querySelectorAll('tr')];if(rows.length<2)return;
-        let hi=0;for(let i=0;i<Math.min(3,rows.length);i++){if([...rows[i].querySelectorAll('tc')].some(c=>pptCT(c))){hi=i;break;}}
-        const hdrs=[...rows[hi].querySelectorAll('tc')].map(pptCT);if(!hdrs.some(h=>h))return;
-        const cm={};hdrs.forEach((h,i)=>{const f=pptMC(h);if(f)cm[i]=f;});
-        for(let ri=hi+1;ri<rows.length;ri++){
-          const cells=[...rows[ri].querySelectorAll('tc')].map(pptCT);if(!cells.some(c=>c))continue;
-          const rec={_slide:slideNum,_file:PPT.file.name,_row:ri-hi,_status:'pending',_imgs:[],date:'',factory:'',type:'',severity:'متوسطة',status:'جديدة',description:'',actionTaken:'',concernedParty:'',notes:'',followUpStmt:'',originalNum:''};
-          cells.forEach((val,ci)=>{const field=cm[ci];if(!field||!val.trim())return;if(field==='date')rec.date=pptND(val);else rec[field]=rec[field]?(rec[field]+'\n'+val):val;});
-          if(!rec.date)rec.date=td();
-          if(!rec.description){const u=cells.filter((_,ci)=>!cm[ci]&&cells[ci]).join(' | ');if(u)rec.description=u;}
-          rec._nr=!rec.type&&!rec.description;
-          rec._dup=DB.violations.some(v=>v.date===rec.date&&v.factory===rec.factory&&v.type===rec.type&&rec.type);
-          recs.push(rec);
-        }
-      });
-    }
-    PPT.records=recs;pptPrg(100,'اكتمل!');await new Promise(r=>setTimeout(r,400));
-    if(!recs.length){toast('⚠️ لم يُعثر على جداول','warn');pptM(1);return;}
-    pptM(3);
-  }catch(e){console.error(e);toast('خطأ: '+e.message,'err');pptM(1);}
-}
-function pptRv(){
-  const b=document.getElementById('gmod-body');const f=document.getElementById('gmod-foot');if(!b)return;
-  const tot=PPT.records.length,ap=PPT.records.filter(r=>r._status==='approved').length,ex=PPT.records.filter(r=>r._status==='excluded').length,nr=PPT.records.filter(r=>r._nr&&r._status==='pending').length,dp=PPT.records.filter(r=>r._dup).length,hf=PPT.records.filter(r=>r.followUpStmt).length;
-  const sb=`<div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:12px">${['📂 رفع','⚙️ تحليل','📋 مراجعة','✅ حفظ'].map((l,i)=>{const n=i+1;return`<div style="flex:1;padding:8px 4px;text-align:center;font-size:11px;font-weight:700;color:${3===n?'var(--blue2)':3>n?'var(--grn2)':'var(--muted)'};border-bottom:3px solid ${3===n?'var(--blue)':3>n?'var(--green)':'transparent'}">${3>n?'✓ ':''}${l}</div>`;}).join('')}</div>`;
-  b.innerHTML=`${sb}
-  <div style="font-size:11px;color:var(--muted);margin-bottom:8px">📥 <strong>${esc(PPT.file?.name||'')}</strong></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-    <div style="flex:1;min-width:50px;text-align:center;padding:7px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)"><div style="font-size:18px;font-weight:900;color:var(--blue2)">${tot}</div><div style="font-size:10px;color:var(--muted)">إجمالي</div></div>
-    <div style="flex:1;min-width:50px;text-align:center;padding:7px;background:rgba(124,58,237,.1);border-radius:8px;border:1px solid rgba(124,58,237,.3)"><div style="font-size:18px;font-weight:900;color:var(--purp2)">${hf}</div><div style="font-size:10px;color:var(--muted)">📋 بإفادة</div></div>
-    <div style="flex:1;min-width:50px;text-align:center;padding:7px;background:rgba(22,163,74,.1);border-radius:8px;border:1px solid rgba(22,163,74,.3)"><div style="font-size:18px;font-weight:900;color:var(--grn2)">${ap}</div><div style="font-size:10px;color:var(--muted)">✅ معتمد</div></div>
-    <div style="flex:1;min-width:50px;text-align:center;padding:7px;background:rgba(220,38,38,.1);border-radius:8px;border:1px solid rgba(220,38,38,.3)"><div style="font-size:18px;font-weight:900;color:var(--red2)">${ex}</div><div style="font-size:10px;color:var(--muted)">❌ مستبعد</div></div>
-  </div>
-  ${dp?`<div style="padding:6px;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.3);border-radius:7px;font-size:11px;color:var(--amb2);margin-bottom:6px">⚠️ ${dp} مكررة</div>`:''}
-  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
-    <button class="btn bs btn-xs" onclick="PPT.records.forEach(r=>{if(r._status!=='excluded')r._status='approved';});pptRv()">✅ اعتماد الكل</button>
-    <button class="btn ba btn-xs" onclick="PPT.records.forEach(r=>{if(!r._nr&&!r._dup)r._status='approved';});pptRv()">✅ الجاهزة</button>
-    <button class="btn bd btn-xs" onclick="PPT.records.forEach(r=>r._status='excluded');pptRv()">❌ استبعاد الكل</button>
-    <button class="btn bg btn-xs" onclick="PPT.records.forEach(r=>r._status='pending');pptRv()">🔄 إعادة</button>
-  </div>
-  <div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
-    ${PPT.records.map((r,i)=>{const st=r._status||'pending';const bg=st==='approved'?'rgba(22,163,74,.06)':st==='excluded'?'rgba(220,38,38,.04)':r._nr?'rgba(217,119,6,.06)':'var(--card)';const bc=st==='approved'?'rgba(22,163,74,.3)':st==='excluded'?'rgba(220,38,38,.2)':r._nr?'rgba(217,119,6,.3)':'var(--border)';return`<div style="background:${bg};border:1px solid ${bc};border-radius:var(--r2);padding:10px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:7px"><span style="font-size:10px;color:var(--muted);background:var(--bg2);padding:2px 6px;border-radius:4px">ش${r._slide} ص${r._row}</span>${r.followUpStmt?'<span class="badge bg-p">📋</span>':''}${r._dup?'<span class="badge bg-a">⚠️ مكرر</span>':''}${r._nr?'<span class="badge bg-a">⚠️ مراجعة</span>':''}<span class="badge ${st==='approved'?'bg-g':st==='excluded'?'bg-r':'bg-gr'}">${st==='approved'?'✅':'❌' || '⏳'}</span><div style="margin-right:auto;display:flex;gap:3px"><button class="btn bs btn-xs" onclick="PPT.records[${i}]._status='approved';pptRv()">✅</button><button class="btn bg btn-xs" onclick="pptEd(${i})">✏️</button><button class="btn bd btn-xs" onclick="PPT.records[${i}]._status='excluded';pptRv()">❌</button></div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:4px;font-size:11px;margin-bottom:4px"><div><span style="color:var(--muted)">التاريخ:</span> ${esc(r.date||'—')}</div><div><span style="color:var(--muted)">المصنع:</span> ${esc(r.factory||'—')}</div><div><span style="color:var(--muted)">النوع:</span> ${esc(r.type||'—')}</div></div>${r.description?`<div style="font-size:11px;color:var(--dim);padding:4px 6px;background:var(--bg2);border-radius:5px;margin-bottom:3px">${esc(r.description.slice(0,180))}</div>`:''} ${r.followUpStmt?`<div style="font-size:11px;color:var(--purp2);padding:4px 6px;background:rgba(124,58,237,.06);border-right:2px solid var(--purp);border-radius:4px;white-space:pre-wrap">📋 ${esc(r.followUpStmt.slice(0,200))}</div>`:'<div style="font-size:10px;color:var(--muted);font-style:italic">لا إفادة</div>'}</div>`;}).join('')}
-  </div>`;
-  f.innerHTML=`<button class="btn bg" onclick="pptM(1)">← رجوع</button><button class="btn bp" onclick="pptM(4)" ${!ap?'disabled style="opacity:.5"':''}>${ap?`✅ حفظ (${ap}) →`:'اعتمد أولاً'}</button>`;
-}
-function pptEd(i){
-  const r=PPT.records[i];const facs=getFactories();
-  openModal(`✏️ تعديل — ش${r._slide} ص${r._row}`,`
-  <div class="form-row"><div class="fg"><label class="fl">التاريخ</label><input type="date" class="fc" id="ped" value="${r.date||td()}"></div><div class="fg"><label class="fl">المصنع</label><select class="fc" id="pef">${facs.map(f=>`<option ${r.factory===f?'selected':''}>${f}</option>`).join('')}</select></div></div>
-  <div class="fg"><label class="fl">نوع المخالفة</label><input type="text" class="fc" id="pet" value="${esc(r.type||'')}"></div>
-  <div class="fg"><label class="fl">الوصف</label><textarea class="fc" id="ped2" rows="3">${esc(r.description||'')}</textarea></div>
-  <div class="fg"><label class="fl">الإجراء المتخذ</label><textarea class="fc" id="pea" rows="2">${esc(r.actionTaken||'')}</textarea></div>
-  <div class="fg"><label class="fl" style="color:var(--purp2)">📋 المتابعة والإفادة ★</label><textarea class="fc" id="pef2" rows="5" style="border-color:rgba(124,58,237,.4)">${esc(r.followUpStmt||'')}</textarea></div>
-  <div class="fg"><label class="fl">ملاحظات</label><textarea class="fc" id="pen">${esc(r.notes||'')}</textarea></div>`,
-  [{label:'💾 حفظ',cls:'bp',fn:`pptSE(${i})`}]);
-}
-function pptSE(i){
-  const r=PPT.records[i];
-  r.date=document.getElementById('ped')?.value||r.date;r.factory=document.getElementById('pef')?.value||r.factory;
-  r.type=document.getElementById('pet')?.value||r.type;r.description=document.getElementById('ped2')?.value||r.description;
-  r.actionTaken=document.getElementById('pea')?.value||r.actionTaken;r.followUpStmt=document.getElementById('pef2')?.value||r.followUpStmt;
-  r.notes=document.getElementById('pen')?.value||r.notes;r._nr=!r.type&&!r.description;
-  closeModal();setTimeout(pptRv,100);toast('✅ تم','ok');
-}
-async function pptSv(){
-  const ts=PPT.records.filter(r=>r._status==='approved');
-  if(!ts.length){toast('لا توجد معتمدة','err');pptM(3);return;}
-  const b=document.getElementById('gmod-body');const f=document.getElementById('gmod-foot');
-  if(b)b.innerHTML=`<div style="text-align:center;padding:28px"><div style="font-size:40px;margin-bottom:10px">💾</div><div style="font-size:14px;font-weight:800">جاري حفظ ${ts.length} مخالفة...</div><div class="prog" style="max-width:220px;margin:12px auto 0"><div class="prog-f" id="ppt-sp" style="width:0%;background:#ea580c"></div></div></div>`;
-  if(f)f.innerHTML='';let saved=0;
-  for(let i=0;i<ts.length;i++){
-    const r=ts[i];const sp=document.getElementById('ppt-sp');if(sp)sp.style.width=Math.round((i/ts.length)*100)+'%';
-    const now=new Date().toISOString();
-    const vi={id:nid('VIO',DB.violations),date:r.date||td(),time:tn(),eventId:'',factory:r.factory||'',area:'',location:'',type:r.type||'مخالفة',severity:r.severity||'متوسطة',status:'جديدة',description:r.description||'',actionTaken:r.actionTaken||'',concernedParty:r.concernedParty||'',followUpResponsible:'',notes:r.notes||'',followUpStmt:r.followUpStmt||'',
-      statement:r.followUpStmt?{text:r.followUpStmt,party:r.concernedParty||'',status:'مكتملة',history:[],createdBy:'استيراد PowerPoint',createdAt:now,updatedBy:'',updatedAt:''}:null,
-      images:(r._imgs||[]).map(img=>({src:img.src,source:'pptx',file:r._file,slide:r._slide,row:r._row})),
-      timeline:[{ts:now,date:td(),time:tn(),action:`استيراد PowerPoint — ش${r._slide} ص${r._row}`,user:CUSER?.name||''}],
-      importBatchId:PPT.batchId,pptSource:{file:r._file,slide:r._slide,row:r._row,originalNum:r.originalNum||''},createdAt:now};
-    DB.violations.push(vi);try{if(typeof sbSyncVi==='function')sbSyncVi(vi);}catch(e){}saved++;
-    if(i%5===0)await new Promise(r2=>setTimeout(r2,10));
-  }
-  if(!DB.importBatches)DB.importBatches=[];
-  DB.importBatches.push({id:PPT.batchId,date:td(),time:tn(),user:CUSER?.name||'',type:'pptx',source:PPT.file?.name||'',totalRecords:PPT.records.length,successCount:saved,failCount:0,status:'مكتملة',createdAt:new Date().toISOString()});
-  logAudit('استيراد PowerPoint','مخالفة',PPT.batchId,`${saved} مخالفة`);saveDB();updateBadges();
-  if(b)b.innerHTML=`<div style="text-align:center;padding:20px"><div style="font-size:52px;margin-bottom:10px">🎉</div><div style="font-size:16px;font-weight:900;margin-bottom:12px">تم الاستيراد!</div><div style="padding:14px 24px;background:rgba(234,88,12,.1);border-radius:12px;display:inline-block"><div style="font-size:28px;font-weight:900;color:#ea580c">⚠️ ${saved}</div><div style="font-size:12px;color:var(--muted)">مخالفة مع إفاداتها</div></div></div>`;
-  if(f)f.innerHTML=`<button class="btn bg" onclick="closeModal()">إغلاق</button><button class="btn ba" onclick="closeModal();goTo('violations')">⚠️ عرض المخالفات →</button>`;
-  toast(`✅ تم استيراد ${saved} مخالفة`,'ok');
 }
 
 function _recentImportBatches(){
@@ -3049,18 +2897,94 @@ function loadLib(varName, url){
 
 // Generate export toolbar HTML for any page
 function exportBar(dataFn, title, tableId=''){
+  const isVio=dataFn==='viData';
   return `<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
     <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
-    <button class="btn bg btn-xs" onclick="window.print()" title="طباعة / PDF">🖨️ طباعة</button>
-    <button class="btn bg btn-xs" onclick="expPDF(${dataFn}(),'${title}')" title="تصدير PDF">📕 PDF</button>
-    <button class="btn bg btn-xs" onclick="expWord(${dataFn}(),'${title}')" title="تصدير Word">📘 Word</button>
-    <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')" title="تصدير PowerPoint">📙 PPT</button>
-    <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')" title="تصدير Excel">📊 Excel</button>
-    <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')" title="تصدير CSV">📄 CSV</button>
-    <button class="btn bg btn-xs" onclick="expJSON(${dataFn}(),'${title}')" title="تصدير JSON">📋 JSON</button>
-    <button class="btn bg btn-xs" onclick="expImage(${dataFn}(),'${title}')" title="تصدير صورة">🖼️ صورة</button>
-    ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')" title="تصدير الجدول">📑 جدول CSV</button>`:''}
+    ${isVio?`
+    <button class="btn bg btn-xs" onclick="window._vioPrint()" title="طباعة مفصلة">🖨️ طباعة</button>
+    <button class="btn bg btn-xs" onclick="window._vioPDF()" title="PDF مفصل">📕 PDF</button>
+    <button class="btn bg btn-xs" onclick="window._vioWord()" title="Word مفصل">📘 Word</button>
+    <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')" title="PowerPoint">📙 PPT</button>
+    <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')" title="Excel">📊 Excel</button>
+    <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')" title="CSV">📄 CSV</button>
+    `:` 
+    <button class="btn bg btn-xs" onclick="window.print()" title="طباعة">🖨️ طباعة</button>
+    <button class="btn bg btn-xs" onclick="expPDF(${dataFn}(),'${title}')" title="PDF">📕 PDF</button>
+    <button class="btn bg btn-xs" onclick="expWord(${dataFn}(),'${title}')" title="Word">📘 Word</button>
+    <button class="btn bg btn-xs" onclick="expPPTX(${dataFn}(),'${title}')" title="PPT">📙 PPT</button>
+    <button class="btn bg btn-xs" onclick="expExcel(${dataFn}(),'${title}')" title="Excel">📊 Excel</button>
+    <button class="btn bg btn-xs" onclick="expCSV(${dataFn}(),'${title}')" title="CSV">📄 CSV</button>
+    `}
+    <button class="btn bg btn-xs" onclick="expJSON(${dataFn}(),'${title}')" title="JSON">📋 JSON</button>
+    ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')" title="جدول">📑 جدول</button>`:''}
   </div>`;
+}
+
+// ══════════════════════════════════════════════════
+//  📊 VIOLATION EXPORT ENGINE — كل الصيغ مع الصور
+// ══════════════════════════════════════════════════
+
+function _buildVioHTML(viols,title){
+  const sevC={حرجة:'#dc2626',عالية:'#ea580c',متوسطة:'#d97706',منخفضة:'#16a34a'};
+  const cards=viols.map(v=>{
+    const stmt=v.followUpStmt||v.statement?.text||'';
+    const imgs=(v.images||[]).filter(i=>i&&i.src&&i.src.startsWith('data:')).slice(0,8);
+    const sev=v.severity||'متوسطة';
+    return`<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px;page-break-inside:avoid">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;flex-wrap:wrap">
+        <span style="font-size:14pt;font-weight:900;color:#1e3a8a">${v.id}</span>
+        <span style="background:${sevC[sev]||'#d97706'};color:#fff;padding:2px 10px;border-radius:20px;font-size:9pt;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact">${sev}</span>
+        <span style="background:#f1f5f9;padding:2px 10px;border-radius:20px;font-size:9pt">${v.status||'—'}</span>
+        <span style="margin-right:auto;font-size:9pt;color:#64748b">${v.date||''} | ${v.factory||''}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        <div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">نوع المخالفة</div><div style="font-size:10pt;font-weight:600">${v.type||'—'}</div></div>
+        <div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">المصنع</div><div style="font-size:10pt;font-weight:600">${v.factory||'—'}</div></div>
+        <div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">الشخص المعني</div><div style="font-size:10pt;font-weight:600">${v.concernedParty||'—'}</div></div>
+        ${v.followUpResponsible?`<div style="background:#f8fafc;padding:6px 8px;border-radius:6px"><div style="font-size:8pt;color:#64748b">المسؤول</div><div style="font-size:10pt">${v.followUpResponsible}</div></div>`:''}
+      </div>
+      ${v.description?`<div style="background:#f0f9ff;border-right:3px solid #3b82f6;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#1e40af;margin-bottom:4px">📝 وصف المخالفة</div><div style="font-size:10pt;line-height:1.7">${v.description.replace(/\n/g,'<br>')}</div></div>`:''}
+      ${v.actionTaken?`<div style="background:#f0fdf4;border-right:3px solid #22c55e;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#15803d;margin-bottom:4px">✅ الإجراء المتخذ</div><div style="font-size:10pt;line-height:1.7">${v.actionTaken.replace(/\n/g,'<br>')}</div></div>`:''}
+      ${v.notes?`<div style="background:#fefce8;border-right:3px solid #eab308;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#854d0e;margin-bottom:4px">📋 الملاحظات</div><div style="font-size:10pt;line-height:1.7">${v.notes.replace(/\n/g,'<br>')}</div></div>`:''}
+      ${stmt?`<div style="background:#faf5ff;border-right:3px solid #7c3aed;border-radius:6px;padding:8px 12px;margin-bottom:8px"><div style="font-size:9pt;font-weight:700;color:#7c3aed;margin-bottom:4px">📄 المتابعة والإفادة</div><div style="font-size:10pt;line-height:1.7">${stmt.replace(/\n/g,'<br>')}</div>${v.statement?.party?`<div style="font-size:9pt;color:#6d28d9;margin-top:4px">مقدم الإفادة: <strong>${v.statement.party}</strong></div>`:''}${v.statement?.status?`<div style="font-size:9pt;color:#6d28d9">الحالة: <strong>${v.statement.status}</strong></div>`:''}</div>`:''}
+      ${imgs.length?`<div style="background:#f8fafc;border-radius:6px;padding:8px 12px"><div style="font-size:9pt;font-weight:700;color:#1e40af;margin-bottom:8px">📷 صور المخالفة (${imgs.length})</div><div style="display:flex;flex-wrap:wrap;gap:8px">${imgs.map(img=>`<img src="${img.src}" style="width:130px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0">`).join('')}</div></div>`:''}
+    </div>`;
+  }).join('');
+  return`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${title}</title><style>@page{size:A4;margin:1.5cm}body{font-family:Arial,sans-serif;direction:rtl;color:#1e293b;margin:0;font-size:10pt}.hdr{background:#1e3a8a;color:#fff;padding:18px;text-align:center;margin-bottom:18px;print-color-adjust:exact;-webkit-print-color-adjust:exact}.hdr h1{margin:0 0 4px;font-size:17pt}.hdr h2{margin:0 0 4px;font-size:12pt;opacity:.9}.hdr p{margin:0;font-size:8pt;opacity:.7}.ftr{text-align:center;margin-top:18px;font-size:8pt;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style></head><body>
+<div class="hdr"><h1>🏭 غرفة المراقبة المركزية</h1><h2>${title}</h2><p>إجمالي: ${viols.length} مخالفة | ${td()} | ${CUSER?.name||'—'}</p></div>
+${cards}<div class="ftr">نظام غرفة المراقبة المركزية | ${new Date().toLocaleString('ar-EG')}</div></body></html>`;
+}
+
+function _getFilteredVio(){
+  const q=(document.getElementById('vi-q')?.value||'').toLowerCase();
+  const fac=document.getElementById('vi-fac')?.value||'';
+  const typ=document.getElementById('vi-typ')?.value||'';
+  const sev2=document.getElementById('vi-sev')?.value||'';
+  const sta=document.getElementById('vi-sta')?.value||'';
+  let vs=[...DB.violations].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(q)vs=vs.filter(v=>JSON.stringify(v).toLowerCase().includes(q));
+  if(fac)vs=vs.filter(v=>v.factory===fac);
+  if(typ)vs=vs.filter(v=>v.type===typ);
+  if(sev2)vs=vs.filter(v=>v.severity===sev2);
+  if(sta)vs=vs.filter(v=>v.status===sta);
+  return vs;
+}
+
+function _setupVioExports(){
+  const viols=_getFilteredVio();const title='تقرير المخالفات';
+  const ow=html=>{const w=window.open('','_blank','width=920,height=750');if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return null;}w.document.open();w.document.write(html);w.document.close();w.focus();return w;};
+  window._vioPrint=()=>{if(!viols.length){toast('لا توجد مخالفات','err');return;}const w=ow(_buildVioHTML(viols,title));if(w)setTimeout(()=>w.print(),700);toast(`🖨️ ${viols.length} مخالفة`,'ok');};
+  window._vioPDF=()=>{if(!viols.length){toast('لا توجد مخالفات','err');return;}const w=ow(_buildVioHTML(viols,title));if(w)setTimeout(()=>w.print(),700);toast('احفظ كـ PDF من نافذة الطباعة ✅','ok');};
+  window._vioWord=()=>{
+    if(!viols.length){toast('لا توجد مخالفات','err');return;}
+    const html=_buildVioHTML(viols,title);
+    const doc=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name=ProgId content=Word.Document><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--></head>${html.slice(html.indexOf('<body'))}</html>`;
+    const b=new Blob(['﻿'+doc],{type:'application/vnd.ms-word;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`${title}_${td()}.doc`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast(`📘 Word مع الصور (${viols.length} مخالفة) ✅`,'ok');
+    logAudit('Word',title,'—',viols.length+' سجل');
+  };
 }
 
 // ── DATA EXTRACTORS ──
@@ -3569,12 +3493,12 @@ async function loadFromSupabase(){
   }catch(e){setSyncStatus('error');return false;}
 }
 
-function sbSyncEv(ev,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
-function sbSyncVi(vi,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
-function sbSyncRv(rv,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
-function sbSyncStm(s,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
-function sbSyncFu(f,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
-function sbSyncTk(t,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
+function sbSyncEv(ev,del=false){if(!sbReady)return;del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
+function sbSyncVi(vi,del=false){if(!sbReady)return;del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
+function sbSyncRv(rv,del=false){if(!sbReady)return;del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
+function sbSyncStm(s,del=false){if(!sbReady)return;del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
+function sbSyncFu(f,del=false){if(!sbReady)return;del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
+function sbSyncTk(t,del=false){if(!sbReady)return;del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
 function sbSyncFac(f,del=false){if(!sbReady)return;del?sbDelete('factories',f.id):sbUpsert('factories',f);} // 🔧 إصلاح: دالة مزامنة كانت ناقصة بالكامل للمصانع
 function sbSyncUsr(u,del=false){if(!sbReady)return;del?sbDelete('users',u.id):sbUpsert('users',u);} // 🔧 إصلاح: دالة مزامنة كانت ناقصة بالكامل للمستخدمين
 
@@ -3694,80 +3618,26 @@ function _loadChart(){
 
 function initApp(){
   loadTheme();updateClock();updateBadges();
+  // Restore last action on login
   try{restoreLastAction();}catch(e){}
+  // Restore last page
   const lp=LS.get('ccr_last_page')||'dashboard';
   goTo(lp);
+  // Clock tick
   setInterval(updateClock,30000);
+  // SLA check every 5 min
   setInterval(()=>{try{runSLA();}catch(e){}},5*60*1000);
   try{runSLA();}catch(e){}
+  // Chart.js async
   setTimeout(_loadChart,600);
+  // Save last page on nav
   document.querySelectorAll('.ni').forEach(n=>{
     n.addEventListener('click',()=>LS.set('ccr_last_page',curPage));
   });
+  // Desktop datetime bar
   const dtEl=document.getElementById('tb-dt');
   const updateDtVis=()=>{if(dtEl)dtEl.style.display=window.innerWidth>=1024?'flex':'none';};
   updateDtVis();window.addEventListener('resize',updateDtVis);
-
-  // ══ SUPABASE: اتصال + مزامنة تلقائية بدون ضغط أي زر ══
-  let _retry=0;
-
-  async function autoConnect(){
-    if(_retry>=5)return;
-    _retry++;
-    setSyncStatus('syncing');
-    const ok=await initSupabase().catch(()=>false);
-    if(!ok){
-      setSyncStatus('offline');
-      const delay=[5000,10000,20000,40000,60000][_retry-1]||60000;
-      setTimeout(autoConnect,delay);
-      return;
-    }
-    // متصل — اجلب أحدث بيانات
-    setupRealtime();
-    const loaded=await loadFromSupabase().catch(()=>false);
-    if(loaded){
-      updateBadges();
-      try{goTo(LS.get('ccr_last_page')||'dashboard');}catch(e){}
-      updateSyncTime();
-      _retry=0;
-    }
-  }
-
-  // ابدأ الاتصال بعد 1 ثانية
-  setTimeout(autoConnect,1000);
-
-  // ══ مزامنة تلقائية كل 30 ثانية ══
-  setInterval(async()=>{
-    if(!sbReady||!navigator.onLine)return;
-    const ok=await loadFromSupabase().catch(()=>false);
-    if(ok){updateSyncTime();updateBadges();}
-  },30000);
-
-  // ══ تحديث تلقائي لما ترجع للتطبيق ══
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState!=='visible')return;
-    if(sbReady){
-      const last=LS.get('ccr_last_sync');
-      if(!last||Date.now()-new Date(last).getTime()>20000){
-        loadFromSupabase().then(ok=>{if(ok){updateSyncTime();updateBadges();}}).catch(()=>{});
-      }
-    } else if(navigator.onLine&&_retry<5){
-      autoConnect();
-    }
-  });
-
-  // ══ إعادة اتصال فور رجوع الإنترنت ══
-  window.addEventListener('online',()=>{
-    toast('🌐 عاد الإنترنت — جاري المزامنة...','inf');
-    _retry=0;
-    setTimeout(autoConnect,500);
-  });
-  window.addEventListener('offline',()=>{
-    setSyncStatus('offline');
-  });
-
-  // ══ Service Worker ══
-  setTimeout(()=>{try{if(typeof registerServiceWorker==='function')registerServiceWorker();}catch(e){}},1500);
 }
 
 // ── ENTRY POINT ──
