@@ -3833,21 +3833,51 @@ const MAP_TK={id:'id',date:'date',title:'title',description:'description',assign
 function toRow(obj,map){const row={};for(const[jk,sk]of Object.entries(map)){if(obj[jk]!==undefined){let v=obj[jk];if(v!==null&&(Array.isArray(v)||(typeof v==='object')))v=JSON.stringify(v);row[sk]=v;}}return row;}
 function fromRow(row,map){const rev=Object.fromEntries(Object.entries(map).map(([k,v])=>[v,k]));const obj={};for(const[sk,jk]of Object.entries(rev)){if(row[sk]!==undefined){let v=row[sk];if(typeof v==='string'&&(v.startsWith('[')||v.startsWith('{'))){try{v=JSON.parse(v);}catch(e){}}obj[jk]=v;}}return obj;}
 
-async function sbUpsert(table,row){if(!sbReady||!sb)return false;try{const{error}=await sb.from(table).upsert(row,{onConflict:'id'});if(error)throw error;return true;}catch(e){console.warn('sbUpsert',table,e.message);return false;}}
-async function sbDelete(table,id){if(!sbReady||!sb)return false;try{const{error}=await sb.from(table).delete().eq('id',id);if(error)throw error;return true;}catch(e){console.warn('sbDelete',table,e.message);return false;}}
-async function sbFetch(table,map){if(!sbReady||!sb)return null;try{const{data,error}=await sb.from(table).select('*').order('created_at',{ascending:true});if(error)throw error;return map?data.map(r=>fromRow(r,map)):data;}catch(e){console.warn('sbFetch',table,e.message);return null;}}
+// sbUpsert and sbDelete defined below in REST section
+// ── NO CDN: Supabase REST API مباشر ──
+async function sbREST(method,table,body=null,query='',extra={}){
+  const url=`${SB_URL}/rest/v1/${table}${query?'?'+query:''}`;
+  const h={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Accept':'application/json',...extra};
+  const opts={method,headers:h};if(body)opts.body=JSON.stringify(body);
+  const res=await fetch(url,opts);
+  if(!res.ok&&res.status!==204){const t=await res.text().catch(()=>'');throw new Error(`${res.status}: ${t.slice(0,100)}`);}
+  if(res.status===204)return true;
+  return res.json().catch(()=>[]);
+}
+
+async function sbUpsert(table,row){
+  if(!sbReady)return false;
+  try{await sbREST('POST',table,row,'',{'Prefer':'resolution=merge-duplicates,return=minimal'});return true;}
+  catch(e){console.warn('sbUpsert',table,e.message);return false;}
+}
+async function sbDelete(table,id){
+  if(!sbReady)return false;
+  try{await sbREST('DELETE',table,null,'id=eq.'+encodeURIComponent(id));return true;}
+  catch(e){console.warn('sbDelete',table,e.message);return false;}
+}
+async function sbFetch(table,map){
+  if(!sbReady)return null;
+  try{
+    // Try with ordering first, fallback without ordering
+    let data;
+    try{data=await sbREST('GET',table,null,'select=*&order=created_at.asc');}
+    catch(e){
+      console.warn('sbFetch order failed, retrying without order:',table);
+      data=await sbREST('GET',table,null,'select=*');
+    }
+    if(!Array.isArray(data))return null;
+    return map?data.map(r=>fromRow(r,map)):data;
+  }catch(e){console.warn('sbFetch',table,e.message);return null;}
+}
 
 async function initSupabase(){
   setSyncStatus('syncing');
   try{
-    await new Promise((res,rej)=>{
-      if(window.supabase){res();return;}
-      const s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      s.onload=res;s.onerror=rej;document.body.appendChild(s);
-    });
-    sb=window.supabase.createClient(SB_URL,SB_KEY);
-    sbReady=true;return true;
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),10000);
+    const res=await fetch(`${SB_URL}/rest/v1/`,{headers:{'apikey':SB_KEY,'Accept':'application/json'},signal:ctrl.signal}).finally(()=>clearTimeout(tid));
+    if(res.status<500){sb=true;sbReady=true;setSyncStatus('connected');return true;}
+    throw new Error('HTTP '+res.status);
   }catch(e){setSyncStatus('offline');return false;}
 }
 
@@ -3870,14 +3900,14 @@ async function loadFromSupabase(){
   }catch(e){setSyncStatus('error');return false;}
 }
 
-function sbSyncEv(ev,del=false){if(!sbReady)return;del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
-function sbSyncVi(vi,del=false){if(!sbReady)return;del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
-function sbSyncRv(rv,del=false){if(!sbReady)return;del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
-function sbSyncStm(s,del=false){if(!sbReady)return;del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
-function sbSyncFu(f,del=false){if(!sbReady)return;del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
-function sbSyncTk(t,del=false){if(!sbReady)return;del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
-function sbSyncFac(f,del=false){if(!sbReady)return;del?sbDelete('factories',f.id):sbUpsert('factories',f);} // 🔧 إصلاح: دالة مزامنة كانت ناقصة بالكامل للمصانع
-function sbSyncUsr(u,del=false){if(!sbReady)return;del?sbDelete('users',u.id):sbUpsert('users',u);} // 🔧 إصلاح: دالة مزامنة كانت ناقصة بالكامل للمستخدمين
+function sbSyncEv(ev,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('events',ev.id):sbUpsert('events',toRow(ev,MAP_EV));}
+function sbSyncVi(vi,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('violations',vi.id):sbUpsert('violations',toRow(vi,MAP_VI));}
+function sbSyncRv(rv,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('reviews',rv.id):sbUpsert('reviews',toRow(rv,MAP_RV));}
+function sbSyncStm(s,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('statements',s.id):sbUpsert('statements',toRow(s,MAP_STM));}
+function sbSyncFu(f,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));}
+function sbSyncTk(t,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));}
+function sbSyncFac(f,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('factories',f.id):sbUpsert('factories',f);}
+function sbSyncUsr(u,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('users',u.id):sbUpsert('users',u);}
 
 async function fullSyncToSupabase(){
   if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
@@ -3933,7 +3963,7 @@ function handleRT(table,payload,map){
 
 async function checkSupabaseConnection(){
   if(!sbReady||!sb){setSyncStatus('offline');return false;}
-  try{const{error}=await sb.from('events').select('id').limit(1);if(error)throw error;setSyncStatus('connected');toast('✅ Supabase متصل وشغال!','ok');return true;}
+  try{const data=await sbREST('GET','events',null,'select=id&limit=1');setSyncStatus('connected');toast('✅ Supabase متصل وشغال!','ok');return true;}
   catch(e){setSyncStatus('error');toast('❌ خطأ: '+e.message,'err');return false;}
 }
 
