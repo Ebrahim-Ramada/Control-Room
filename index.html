@@ -2994,25 +2994,38 @@ function openUpdateCenter(){
 
 // ⚡ Force Update Now — clear cache and reload fresh
 function forceUpdateNow(){
-  if(!confirm('سيتم:\n1️⃣ حفظ بياناتك أولاً\n2️⃣ مسح النسخة المخزنة في المتصفح\n3️⃣ إعادة تحميل أحدث نسخة\n\nتأكد أنك رفعت الملف الجديد أولاً.'))return;
-  saveDB();
-  toast('جاري حذف الكاش وتحميل أحدث نسخة...','inf');
-  setTimeout(()=>{
-    // Clear all caches
-    if('caches' in window){
-      caches.keys().then(names=>{
-        names.forEach(n=>caches.delete(n));
-      });
+  // Pull from Supabase immediately without page reload
+  if(sbReady){
+    toast('⏳ جاري جلب أحدث البيانات من السحابة...','inf');
+    setSyncStatus('syncing');
+    loadFromSupabase().then(ok=>{
+      if(ok){
+        updateSyncTime();updateBadges();
+        const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
+        if(R[curPage])try{R[curPage]();}catch(e){}
+        setSyncStatus('connected');
+        toast('✅ تم تحديث البيانات من السحابة','ok');
+      }else{
+        toast('⚠️ تعذر التحديث — جاري إعادة الاتصال...','warn');
+        initSupabase().then(ok2=>{if(ok2)loadFromSupabase().then(()=>{updateBadges();const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};if(R[curPage])try{R[curPage]();}catch(e){}toast('✅ تم التحديث','ok');});});
+      }
+    }).catch(()=>toast('❌ فشل الاتصال بالسحابة','err'));
+    return;
+  }
+  // Not connected — connect first then pull
+  toast('⏳ جاري الاتصال بالسحابة...','inf');
+  initSupabase().then(async ok=>{
+    if(!ok){toast('❌ تعذر الاتصال — تأكد من الإنترنت','err');return;}
+    setupRealtime();
+    const loaded=await loadFromSupabase();
+    if(loaded){
+      updateBadges();
+      const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
+      if(R[curPage])try{R[curPage]();}catch(e){}
+      updateSyncTime();
+      toast('✅ تم الاتصال وتحديث البيانات من السحابة','ok');
     }
-    // Unregister service workers
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.getRegistrations().then(regs=>{
-        regs.forEach(r=>r.unregister());
-      });
-    }
-    // Force hard reload
-    setTimeout(()=>window.location.reload(true), 500);
-  },600);
+  }).catch(()=>toast('❌ خطأ في الاتصال','err'));
 }
 
 // Force reload while preserving data
@@ -3982,26 +3995,81 @@ function _loadChart(){
 
 function initApp(){
   loadTheme();updateClock();updateBadges();
-  // Restore last action on login
   try{restoreLastAction();}catch(e){}
-  // Restore last page
   const lp=LS.get('ccr_last_page')||'dashboard';
   goTo(lp);
-  // Clock tick
   setInterval(updateClock,30000);
-  // SLA check every 5 min
   setInterval(()=>{try{runSLA();}catch(e){}},5*60*1000);
   try{runSLA();}catch(e){}
-  // Chart.js async
   setTimeout(_loadChart,600);
-  // Save last page on nav
   document.querySelectorAll('.ni').forEach(n=>{
     n.addEventListener('click',()=>LS.set('ccr_last_page',curPage));
   });
-  // Desktop datetime bar
   const dtEl=document.getElementById('tb-dt');
   const updateDtVis=()=>{if(dtEl)dtEl.style.display=window.innerWidth>=1024?'flex':'none';};
   updateDtVis();window.addEventListener('resize',updateDtVis);
+
+  // ══════════════════════════════════════════════
+  //  SUPABASE AUTO-SYNC — المزامنة التلقائية
+  // ══════════════════════════════════════════════
+  let _retry=0;
+
+  async function autoConnect(){
+    if(_retry>=5)return;_retry++;
+    setSyncStatus('syncing');
+    const ok=await initSupabase().catch(()=>false);
+    if(!ok){
+      setSyncStatus('offline');
+      const delay=[5000,10000,20000,40000,60000][_retry-1]||60000;
+      setTimeout(autoConnect,delay);
+      return;
+    }
+    // ✅ متصل — اجلب البيانات من السحابة فوراً
+    setupRealtime();
+    const loaded=await loadFromSupabase().catch(()=>false);
+    if(loaded){
+      updateBadges();
+      const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
+      if(R[curPage])try{R[curPage]();}catch(e){}
+      updateSyncTime();_retry=0;
+      // ✅ رفع أي بيانات معلقة
+      const pending=(DB._pendingSync?.violations?.length||0)+(DB._pendingSync?.events?.length||0);
+      if(pending>0)setTimeout(()=>forceSyncPending().catch(()=>{}),2000);
+    }
+  }
+
+  // ── ابدأ الاتصال فوراً ──
+  setTimeout(autoConnect,500);
+
+  // ── مزامنة تلقائية كل 30 ثانية ──
+  setInterval(async()=>{
+    if(!sbReady||!navigator.onLine)return;
+    const ok=await loadFromSupabase().catch(()=>false);
+    if(ok){updateSyncTime();updateBadges();
+      const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
+      if(R[curPage])try{R[curPage]();}catch(e){}
+    }
+  },30000);
+
+  // ── تحديث تلقائي لما ترجع للتطبيق ──
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState!=='visible')return;
+    if(sbReady){
+      const last=LS.get('ccr_last_sync');
+      if(!last||Date.now()-new Date(last).getTime()>15000)
+        loadFromSupabase().then(ok=>{if(ok){updateSyncTime();updateBadges();const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};if(R[curPage])try{R[curPage]();}catch(e){}}}).catch(()=>{});
+    }else if(navigator.onLine&&_retry<5)autoConnect();
+  });
+
+  // ── رجع الإنترنت ──
+  window.addEventListener('online',()=>{
+    toast('🌐 عاد الإنترنت — جاري المزامنة...','inf');
+    _retry=0;setTimeout(autoConnect,500);
+  });
+  window.addEventListener('offline',()=>{setSyncStatus('offline');});
+
+  // ── Service Worker ──
+  setTimeout(()=>{try{if(typeof registerServiceWorker==='function')registerServiceWorker();}catch(e){}},1500);
 }
 
 // ── ENTRY POINT ──
