@@ -2993,39 +2993,38 @@ function openUpdateCenter(){
 }
 
 // ⚡ Force Update Now — clear cache and reload fresh
-function forceUpdateNow(){
-  // Pull from Supabase immediately without page reload
-  if(sbReady){
-    toast('⏳ جاري جلب أحدث البيانات من السحابة...','inf');
-    setSyncStatus('syncing');
-    loadFromSupabase().then(ok=>{
-      if(ok){
-        updateSyncTime();updateBadges();
-        const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
-        if(R[curPage])try{R[curPage]();}catch(e){}
-        setSyncStatus('connected');
-        toast('✅ تم تحديث البيانات من السحابة','ok');
-      }else{
-        toast('⚠️ تعذر التحديث — جاري إعادة الاتصال...','warn');
-        initSupabase().then(ok2=>{if(ok2)loadFromSupabase().then(()=>{updateBadges();const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};if(R[curPage])try{R[curPage]();}catch(e){}toast('✅ تم التحديث','ok');});});
-      }
-    }).catch(()=>toast('❌ فشل الاتصال بالسحابة','err'));
-    return;
-  }
-  // Not connected — connect first then pull
-  toast('⏳ جاري الاتصال بالسحابة...','inf');
-  initSupabase().then(async ok=>{
-    if(!ok){toast('❌ تعذر الاتصال — تأكد من الإنترنت','err');return;}
+async function forceUpdateNow(){
+  toast('⏳ جاري الاتصال والتحديث...','inf');
+  setSyncStatus('syncing');
+
+  // Connect if not connected
+  if(!sbReady){
+    const ok=await initSupabase().catch(()=>false);
+    if(!ok){
+      setSyncStatus('offline');
+      toast('❌ تعذر الاتصال — تأكد من الإنترنت','err');
+      return;
+    }
     setupRealtime();
-    const loaded=await loadFromSupabase();
-    if(loaded){
+  }
+
+  // Pull from cloud
+  try{
+    const ok=await loadFromSupabase();
+    if(ok){
       updateBadges();
       const R={events:filterEvts,violations:filterViols,reviews:filterRevs,tasks:filterTasks};
       if(R[curPage])try{R[curPage]();}catch(e){}
-      updateSyncTime();
-      toast('✅ تم الاتصال وتحديث البيانات من السحابة','ok');
+      setSyncStatus('connected');
+      toast('✅ تم تحديث البيانات من السحابة','ok');
+    }else{
+      setSyncStatus('error');
+      toast('⚠️ الاتصال شغال لكن لا توجد بيانات في السحابة بعد','warn');
     }
-  }).catch(()=>toast('❌ خطأ في الاتصال','err'));
+  }catch(e){
+    setSyncStatus('error');
+    toast('❌ خطأ: '+e.message,'err');
+  }
 }
 
 // Force reload while preserving data
@@ -3351,17 +3350,147 @@ function vioCSVNow(){
   expCSV(data,'جدول_المخالفات');
 }
 
-// ── PowerPoint للمخالفات ──
+// ── PowerPoint احترافي للمخالفات (بنفس تصميم التقرير السنوي) ──
 async function vioPPTXNow(){
   const viols=_getFilteredVio();
   if(!viols.length){toast('لا توجد مخالفات','err');return;}
-  const data=viols.map((v,i)=>({
-    '#':i+1,'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
-    'الخطورة':v.severity||'','الحالة':v.status||'',
-    'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
-    'المتابعة والإفادة':v.followUpStmt||v.statement?.text||'','ملاحظات':v.notes||''
-  }));
-  await expPPTX(data,'المخالفات');
+  toast('⏳ جاري إنشاء PowerPoint...','inf');
+  try{
+    // Load PptxGenJS
+    await new Promise((res,rej)=>{
+      if(window.PptxGenJS){res();return;}
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+      s.onload=res;s.onerror=()=>{
+        const s2=document.createElement('script');
+        s2.src='https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js';
+        s2.onload=res;s2.onerror=rej;document.body.appendChild(s2);
+      };
+      document.body.appendChild(s);
+    });
+
+    const pres=new PptxGenJS();
+    pres.layout='LAYOUT_WIDE';
+    const yr=viols[0]?.date?.split('-')[0]||new Date().getFullYear().toString();
+
+    // Color palette
+    const C={
+      bg:'0A0E17',teal:'3D7272',tealL:'4B9EA3',badge:'2B5060',
+      bdark:'0D1520',white:'FFFFFF',cyan:'B8FFFF',gray:'8A9BA8',panel:'111C26'
+    };
+    const sevC={حرجة:'8B1A1A',عالية:'7B3D00',متوسطة:'5B4A00',منخفضة:'1A4A2A'};
+
+    // Helper: left column with timeline dots
+    function addLeftCol(slide,idxNum){
+      slide.addShape(pres.ShapeType.rect,{x:0,y:0,w:1.2,h:7.5,fill:{color:C.bdark},line:{color:C.tealL,width:0.5}});
+      slide.addShape(pres.ShapeType.rect,{x:1.2,y:0,w:0.04,h:7.5,fill:{color:C.tealL}});
+      for(let i=0;i<7;i++){
+        slide.addShape(pres.ShapeType.ellipse,{x:0.52,y:0.5+i*1.0,w:0.15,h:0.15,fill:{color:C.bdark},line:{color:C.tealL,width:1}});
+      }
+      if(idxNum!==undefined){
+        slide.addText(String(idxNum+1).padStart(2,'0'),{x:0.02,y:0.1,w:1.16,h:0.6,fontSize:22,bold:true,color:C.tealL,fontFace:'Arial',align:'center',isTextBox:true,margin:0});
+      }
+    }
+    function addCRBadge(slide){
+      slide.addShape(pres.ShapeType.roundRect,{x:0.05,y:6.8,w:1.1,h:0.5,fill:{color:C.badge},line:{color:C.tealL,width:0.5},rectRadius:0.05});
+      slide.addText('CONTROL\nROOM',{x:0.05,y:6.78,w:1.1,h:0.55,fontSize:7,bold:true,color:C.cyan,fontFace:'Arial',align:'center',isTextBox:true,margin:0});
+    }
+
+    // ── SLIDE 1: Title ──
+    const s1=pres.addSlide();
+    s1.background={color:C.bg};
+    addLeftCol(s1);
+    s1.addShape(pres.ShapeType.rect,{x:1.3,y:0,w:12,h:7.5,fill:{color:C.panel}});
+    s1.addText('التقرير السنوي',{x:1.5,y:1.3,w:10.5,h:1.2,fontSize:54,bold:true,color:C.white,fontFace:'Cairo',align:'center',isTextBox:true,rtlMode:true});
+    s1.addText('لغرفة المراقبة المركزية',{x:1.5,y:2.5,w:10.5,h:1.1,fontSize:42,bold:true,color:C.tealL,fontFace:'Cairo',align:'center',isTextBox:true,rtlMode:true});
+    s1.addShape(pres.ShapeType.rect,{x:3.5,y:3.65,w:6.0,h:0.04,fill:{color:C.tealL}});
+    s1.addText(yr,{x:1.5,y:3.7,w:10.5,h:1.0,fontSize:56,bold:true,color:C.white,fontFace:'Arial',align:'center',isTextBox:true});
+    s1.addShape(pres.ShapeType.rect,{x:1.3,y:5.5,w:12,h:1.5,fill:{color:C.bdark},line:{color:C.tealL,width:0.5}});
+    s1.addText(`إجمالي المخالفات: ${viols.length}   |   أعده: غرفة المراقبة المركزية`,{x:1.5,y:5.75,w:11.5,h:0.7,fontSize:18,color:C.tealL,fontFace:'Cairo',align:'center',isTextBox:true,rtlMode:true});
+    addCRBadge(s1);
+
+    // ── SLIDE 2: Section header ──
+    const s2=pres.addSlide();
+    s2.background={color:C.bg};
+    addLeftCol(s2);
+    s2.addText('أبرز المخالفات',{x:1.5,y:2.2,w:10.5,h:1.3,fontSize:54,bold:true,color:C.white,fontFace:'Cairo',align:'center',isTextBox:true,rtlMode:true});
+    s2.addText('لعام '+yr,{x:1.5,y:3.5,w:10.5,h:1.0,fontSize:40,bold:true,color:C.tealL,fontFace:'Cairo',align:'center',isTextBox:true,rtlMode:true});
+    s2.addShape(pres.ShapeType.rect,{x:4,y:4.6,w:5,h:0.04,fill:{color:C.tealL}});
+    addCRBadge(s2);
+
+    // ── VIOLATION SLIDES ──
+    for(let i=0;i<viols.length;i++){
+      const v=viols[i];
+      const slide=pres.addSlide();
+      slide.background={color:C.bg};
+      addLeftCol(slide,i);
+
+      // Date on left
+      const dp=(v.date||'').split('-');
+      const dStr=dp.length===3?`${dp[2]}-${dp[1]}-${dp[0]}`:v.date||'';
+      slide.addText(dStr,{x:0,y:3.0,w:1.2,h:1.2,fontSize:10,color:C.tealL,fontFace:'Arial',align:'center',isTextBox:true,rotate:270,margin:0});
+
+      // Main image or placeholder
+      const imgs=v.images||[];
+      if(imgs.length>0&&imgs[0]?.src?.startsWith('data:')){
+        try{
+          const src=imgs[0].src;
+          const mime=src.match(/data:([^;]+);/)?.[1]||'image/jpeg';
+          const b64=src.split(',')[1];
+          slide.addImage({data:mime+';base64,'+b64,x:1.3,y:0,w:12,h:7.5,transparency:25});
+        }catch(e){}
+      }else{
+        slide.addShape(pres.ShapeType.rect,{x:1.3,y:0,w:12,h:7.5,fill:{color:C.panel}});
+      }
+
+      // Dark overlay for text area
+      slide.addShape(pres.ShapeType.rect,{x:1.3,y:4.4,w:12,h:3.1,fill:{color:'050A10',transparency:20}});
+
+      // Factory badge
+      slide.addShape(pres.ShapeType.roundRect,{x:1.4,y:0.22,w:3.5,h:0.65,fill:{color:C.badge},line:{color:C.tealL,width:1},rectRadius:0.08});
+      slide.addText('مصنـع  '+(v.factory||'—'),{x:1.4,y:0.22,w:3.5,h:0.65,fontSize:20,bold:true,color:C.white,fontFace:'Cairo',align:'center',isTextBox:true,margin:0,rtlMode:true});
+
+      // Type | Severity badge
+      const sc=sevC[v.severity||'متوسطة']||'5B4A00';
+      slide.addShape(pres.ShapeType.roundRect,{x:5.1,y:0.22,w:4.5,h:0.65,fill:{color:sc},line:{color:C.tealL,width:0.5},rectRadius:0.08});
+      slide.addText((v.type||'مخالفة')+'  |  '+(v.severity||''),{x:5.1,y:0.22,w:4.5,h:0.65,fontSize:16,bold:true,color:C.white,fontFace:'Cairo',align:'center',isTextBox:true,margin:0,rtlMode:true});
+
+      // Status badge
+      slide.addShape(pres.ShapeType.roundRect,{x:9.8,y:0.22,w:3.5,h:0.65,fill:{color:'1A3A2A'},line:{color:'2A8A5A',width:0.5},rectRadius:0.08});
+      slide.addText(v.status||'—',{x:9.8,y:0.22,w:3.5,h:0.65,fontSize:17,color:'4AEA8A',fontFace:'Cairo',align:'center',isTextBox:true,margin:0,rtlMode:true});
+
+      // Description box
+      const desc=(v.description||'').substring(0,220);
+      slide.addShape(pres.ShapeType.roundRect,{x:1.4,y:4.5,w:8.2,h:2.0,fill:{color:'EBF5FB',transparency:12},line:{color:C.tealL,width:1},rectRadius:0.15,shadow:{type:'outer',color:'000000',opacity:0.4,blur:8,offset:3,angle:270}});
+      slide.addText(desc,{x:1.5,y:4.55,w:8.0,h:1.9,fontSize:18,color:'0D1520',fontFace:'Cairo',align:'right',valign:'middle',isTextBox:true,margin:8,rtlMode:true,wrap:true});
+
+      // Follow-up / statement
+      const stmt=v.followUpStmt||(v.statement?.text)||'';
+      if(stmt){
+        slide.addShape(pres.ShapeType.roundRect,{x:9.8,y:4.5,w:3.5,h:2.0,fill:{color:'1A2A3A',transparency:10},line:{color:C.tealL,width:1},rectRadius:0.12});
+        slide.addText('المتابعة والإفادة',{x:9.85,y:4.55,w:3.4,h:0.4,fontSize:12,bold:true,color:C.tealL,fontFace:'Cairo',align:'center',isTextBox:true,margin:0,rtlMode:true});
+        slide.addText(stmt.substring(0,180),{x:9.85,y:5.0,w:3.4,h:1.35,fontSize:12,color:C.cyan,fontFace:'Cairo',align:'right',isTextBox:true,margin:4,rtlMode:true,wrap:true});
+      }
+
+      // Action taken
+      if(v.actionTaken){
+        slide.addText('⚡ '+v.actionTaken.substring(0,120),{x:1.4,y:6.65,w:11.8,h:0.6,fontSize:13,color:C.tealL,fontFace:'Cairo',align:'right',isTextBox:true,margin:4,rtlMode:true});
+      }
+
+      addCRBadge(slide);
+      slide.addText(v.id||'',{x:10.8,y:6.8,w:2.5,h:0.55,fontSize:11,color:C.gray,fontFace:'Arial',align:'right',isTextBox:true,margin:0});
+    }
+
+    // Download
+    const blob=await pres.write({outputType:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`تقرير_المخالفات_${yr}.pptx`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    toast(`✅ PowerPoint جاهز — ${viols.length} مخالفة`,'ok');
+    logAudit('تصدير PowerPoint','المخالفات','—',viols.length+' سجل');
+  }catch(e){console.error(e);toast('❌ خطأ: '+e.message,'err');}
 }
 
 // ── DATA EXTRACTORS ──
@@ -3936,15 +4065,10 @@ async function pullFromSupabase(){
 }
 
 function setupRealtime(){
-  if(!sbReady||!sb)return;
-  try{
-    window._sbChannel=sb.channel('ccr-live')
-      .on('postgres_changes',{event:'*',schema:'public',table:'events'},p=>handleRT('events',p,MAP_EV))
-      .on('postgres_changes',{event:'*',schema:'public',table:'violations'},p=>handleRT('violations',p,MAP_VI))
-      .on('postgres_changes',{event:'*',schema:'public',table:'reviews'},p=>handleRT('reviews',p,MAP_RV))
-      .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},p=>handleRT('tasks',p,MAP_TK))
-      .subscribe(status=>{if(status==='SUBSCRIBED')setSyncStatus('connected');});
-  }catch(e){console.warn('Realtime:',e);}
+  // REST-based polling — no WebSocket needed
+  // Real-time handled by 30-second interval in initApp
+  setSyncStatus('connected');
+  console.log('✅ Polling sync active');
 }
 
 function handleRT(table,payload,map){
