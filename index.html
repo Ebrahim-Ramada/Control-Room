@@ -11,8 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#060c1a">
 <meta name="description" content="نظام إدارة غرفة المراقبة المركزية">
-<link rel="manifest" href="manifest.json">
-   
+<link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22%D9%86%D8%B8%D8%A7%D9%85%20%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22short_name%22%3A%22%D8%BA%D8%B1%D9%81%D8%A9%20%D8%A7%D9%84%D9%85%D8%B1%D8%A7%D9%82%D8%A8%D8%A9%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23060c1a%22%2C%22theme_color%22%3A%22%23060c1a%22%2C%22orientation%22%3A%22any%22%2C%22lang%22%3A%22ar%22%2C%22dir%22%3A%22rtl%22%7D">
 <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMDYwYzFhIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMjgwIj7wn4+9PC90ZXh0Pjwvc3ZnPg==">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
@@ -1594,7 +1593,15 @@ function saveEvent(id=''){
   else{trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
 }
 
-function deleteEvent(id){if(!confirm(`حذف الحدث ${id}؟`))return;DB.events=DB.events.filter(e=>e.id!==id);logAudit('حذف','حدث',id,'');sbSyncEv({id},true);/* 🔧 إصلاح: مزامنة الحذف مع Supabase */saveDB();filterEvts();updateBadges();toast('تم الحذف','inf');}
+function deleteEvent(id){
+  requireDeletePassword(()=>{
+    DB.events=DB.events.filter(e=>e.id!==id);
+    logAudit('حذف','حدث',id,'');
+    sbSyncEv({id},true);
+    saveDB();filterEvts();updateBadges();
+    toast('تم حذف الحدث ✅','ok');
+  },`حذف الحدث: ${id}`,'حدث',id);
+}
 
 function changeStatusModal(id,entity='ev'){
   const arr=entity==='ev'?DB.events:entity==='vi'?DB.violations:DB.reviews;
@@ -1820,7 +1827,15 @@ function saveVio(id=''){
   else trackAction('إضافة','مخالفة',viId2,'مخالفة جديدة: '+viId2,'violations');
   toast('تم الحفظ ✅','ok');
 }
-function deleteVio(id){if(!confirm(`حذف المخالفة ${id}؟`))return;DB.violations=DB.violations.filter(v=>v.id!==id);sbSyncVi({id},true);/* 🔧 إصلاح: مزامنة الحذف مع Supabase */saveDB();filterViols();updateBadges();}
+function deleteVio(id){
+  requireDeletePassword(()=>{
+    DB.violations=DB.violations.filter(v=>v.id!==id);
+    logAudit('حذف','مخالفة',id,'');
+    sbSyncVi({id},true);
+    saveDB();filterViols();updateBadges();
+    toast('تم حذف المخالفة ✅','ok');
+  },`حذف المخالفة: ${id}`,'مخالفة',id);
+}
 
 // ══════════════════════════════════════════════════
 //  REVIEWS, STATEMENTS, FOLLOWUPS, TASKS
