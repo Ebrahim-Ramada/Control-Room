@@ -3481,14 +3481,17 @@ async function vioPPTXNow(){
       slide.addText(v.id||'',{x:10.8,y:6.8,w:2.5,h:0.55,fontSize:11,color:C.gray,fontFace:'Arial',align:'right',isTextBox:true,margin:0});
     }
 
-    // Download
-    const blob=await pres.write({outputType:'blob'});
+    // Download as proper .pptx (not ZIP)
+    const data=await pres.write({outputType:'arraybuffer'});
+    const blob=new Blob([data],{type:'application/vnd.openxmlformats-officedocument.presentationml.presentation'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;a.download=`تقرير_المخالفات_${yr}.pptx`;
+    a.href=url;
+    a.download=`تقرير_المخالفات_${yr}.pptx`;
+    a.type='application/vnd.openxmlformats-officedocument.presentationml.presentation';
     document.body.appendChild(a);a.click();document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),2000);
-    toast(`✅ PowerPoint جاهز — ${viols.length} مخالفة`,'ok');
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    toast(`✅ PowerPoint جاهز — ${viols.length} مخالفة بالتصميم الجديد`,'ok');
     logAudit('تصدير PowerPoint','المخالفات','—',viols.length+' سجل');
   }catch(e){console.error(e);toast('❌ خطأ: '+e.message,'err');}
 }
