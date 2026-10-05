@@ -663,6 +663,12 @@ function doChangePassword(){
   DB.users[uIdx].pass=newPass;
   saveDB();
   logAudit('تغيير كلمة المرور','نظام',CUSER.id,`تم تغيير كلمة مرور المستخدم: ${CUSER.name}`);
+  // 🔧 إصلاح جذري: دي كانت الفجوة الحقيقية — تغيير كلمة المرور مكانش بيتبعت
+  // لـSupabase خالص، فكان بيفضل محليًا على نفس الجهاز بس. دلوقتي بنزامنه فعليًا،
+  // ولو فشل، بنعرض تحذير واضح بدل ما نسيبك تفتكر إن التغيير وصل لكل الأجهزة
+  sbSyncUsr(DB.users[uIdx]).then(ok=>{
+    if(!ok) toast('⚠️ كلمة المرور اتغيّرت على الجهاز ده بس — تعذّر حفظها على السحاب، يعني هتفضل كلمة المرور القديمة شغّالة على باقي الأجهزة. تأكد من الاتصال بالإنترنت وجرّب تاني','err');
+  });
   closeModal();
   toast('✅ تم تغيير كلمة المرور بنجاح','ok');
 }
@@ -4065,7 +4071,7 @@ function sbSyncStm(s,del=false){return ensureSbReady().then(ok=>{if(!ok)return f
 function sbSyncFu(f,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));});}
 function sbSyncTk(t,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));});}
 function sbSyncFac(f,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('factories',f.id):sbUpsert('factories',f);}
-function sbSyncUsr(u,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('users',u.id):sbUpsert('users',u);}
+function sbSyncUsr(u,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('users',u.id):sbUpsert('users',u);});}
 
 async function fullSyncToSupabase(){
   if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
