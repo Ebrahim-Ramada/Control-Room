@@ -1597,7 +1597,9 @@ function deleteEvent(id){
   requireDeletePassword(()=>{
     DB.events=DB.events.filter(e=>e.id!==id);
     logAudit('حذف','حدث',id,'');
-    sbSyncEv({id},true);
+    // 🔧 إصلاح: دلوقتي بننتظر نتيجة الحذف السحابي الفعلية ونعرض تحذير واضح لو فشل
+    // (بدل ما نقول "تم الحذف" بشكل عام وهو محذوف محليًا بس من غير ما يتحذف من السحاب فعليًا)
+    sbSyncEv({id},true).then(ok=>{ if(!ok) toast('⚠️ العنصر اتحذف من جهازك بس، لكن تعذّر حذفه من السحاب — تأكد من الاتصال بالإنترنت أو راجع صلاحيات الحذف في Supabase','err'); });
     saveDB();filterEvts();updateBadges();
     toast('تم حذف الحدث ✅','ok');
   },`حذف الحدث: ${id}`,'حدث',id);
@@ -1831,7 +1833,7 @@ function deleteVio(id){
   requireDeletePassword(()=>{
     DB.violations=DB.violations.filter(v=>v.id!==id);
     logAudit('حذف','مخالفة',id,'');
-    sbSyncVi({id},true);
+    sbSyncVi({id},true).then(ok=>{ if(!ok) toast('⚠️ العنصر اتحذف من جهازك بس، لكن تعذّر حذفه من السحاب — تأكد من الاتصال بالإنترنت أو راجع صلاحيات الحذف في Supabase','err'); });
     saveDB();filterViols();updateBadges();
     toast('تم حذف المخالفة ✅','ok');
   },`حذف المخالفة: ${id}`,'مخالفة',id);
