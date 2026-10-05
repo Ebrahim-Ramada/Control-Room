@@ -1594,7 +1594,7 @@ function saveEvent(id=''){
   }
   saveDB();closeModal();updateBadges();runSLA();
   const evId2=id||(DB.events[DB.events.length-1]?.id)||'';
-  { const _ev=DB.events.find(e=>e.id===evId2); if(_ev) sbSyncEv(_ev); } // 🔧 إصلاح: مزامنة الحدث مع Supabase (كانت ناقصة)
+  { const _ev=DB.events.find(e=>e.id===evId2); if(_ev) sbSyncEv(_ev).then(ok=>{ if(!ok) toast('⚠️ الحدث اتحفظ على الجهاز ده بس — تعذّر رفعه للسحاب، فمش هيظهر على باقي الأجهزة. تأكد من الاتصال بالإنترنت','err'); }); } // 🔧 إصلاح: مزامنة الحدث + تحذير واضح عند الفشل
   if(id){toast('تم حفظ التعديلات ✅','ok');trackAction('تعديل','حدث',id,'تعديل الحدث '+id,'events');}
   else{trackAction('إضافة','حدث',evId2,'حدث جديد: '+evId2,'events');}
 }
@@ -1830,7 +1830,7 @@ function saveVio(id=''){
   else{const v={...data,id:nid('VIO',DB.violations),createdAt:new Date().toISOString(),timeline:[]};DB.violations.push(v);logAudit('إضافة','مخالفة',v.id,'');}
   saveDB();closeModal();updateBadges();
   const viId2=id||(DB.violations[DB.violations.length-1]?.id)||'';
-  { const _vi=DB.violations.find(v=>v.id===viId2); if(_vi) sbSyncVi(_vi); } // 🔧 إصلاح: مزامنة المخالفة مع Supabase (كانت ناقصة)
+  { const _vi=DB.violations.find(v=>v.id===viId2); if(_vi) sbSyncVi(_vi).then(ok=>{ if(!ok) toast('⚠️ المخالفة اتحفظت على الجهاز ده بس — تعذّر رفعها للسحاب، فمش هتظهر على باقي الأجهزة. تأكد من الاتصال بالإنترنت','err'); }); } // 🔧 إصلاح: مزامنة المخالفة + تحذير واضح عند الفشل
   if(id)trackAction('تعديل','مخالفة',id,'تعديل المخالفة '+id,'violations');
   else trackAction('إضافة','مخالفة',viId2,'مخالفة جديدة: '+viId2,'violations');
   toast('تم الحفظ ✅','ok');
