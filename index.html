@@ -570,11 +570,28 @@ let DB={
   }
 };
 
-function saveDB(){try{LS.set('ccr_pro_db',JSON.stringify(DB));}catch(e){console.warn('Save failed',e);}}
+function saveDB(){vioSeqReset();try{LS.set('ccr_pro_db',JSON.stringify(DB));}catch(e){console.warn('Save failed',e);}}
 function loadDB(){
   try{const d=LS.get('ccr_pro_db');if(d){const p=JSON.parse(d);DB={...DB,...p};}}
   catch(e){console.warn('Load failed',e);}
 }
+// ── ترتيب المخالفات زمنيًا (من 1 يناير لآخر مخالفة) والرقم التسلسلي حسب التاريخ ──
+function vioKey(v){return (v.date||'')+' '+String(v.time||'00:00').padStart(5,'0');}
+function vioChrono(arr){
+  return [...arr].sort((a,b)=>{
+    const k=vioKey(a).localeCompare(vioKey(b));if(k)return k;
+    const c=String(a.createdAt||'').localeCompare(String(b.createdAt||''));if(c)return c;
+    return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});
+  });
+}
+let _vsqMap=null,_vsqLen=-1;
+function vioSeq(v){
+  if(!_vsqMap||_vsqLen!==DB.violations.length){
+    _vsqMap=new Map();vioChrono(DB.violations).forEach((x,i)=>_vsqMap.set(x.id,i+1));_vsqLen=DB.violations.length;
+  }
+  return _vsqMap.get(v.id)||'';
+}
+function vioSeqReset(){_vsqMap=null;}
 function nid(prefix,arr){
   try{const n=arr.map(x=>parseInt((x.id||'0').replace(/\D/g,''))||0);const m=n.length?Math.max(...n):0;return `${prefix}-${String(m+1).padStart(4,'0')}`;}
   catch{return `${prefix}-${Date.now()}`;}
@@ -664,7 +681,15 @@ async function doBootstrap(){
   try{
     if(!(await ensureSbReady())){_liErr('محتاج اتصال بالإنترنت');return;}
     const email=mail||('admin'+Date.now()+'@ccr-app.com');
-    await authSignUp(email,pass);
+    // لو الحساب اتعمل في محاولة سابقة (مثلاً كود الإعداد كان غلط) ندخل بيه بدل ما نعمله من جديد
+    try{await authSignIn(email,pass);}
+    catch(e0){
+      try{await authSignUp(email,pass);}
+      catch(e1){
+        if(e1.code==='user_already_exists'||/already registered/i.test(e1.message)){_liErr('البريد ده اتسجّل في محاولة سابقة بكلمة مرور مختلفة. اكتب نفس كلمة المرور بتاعة المحاولة الأولى، أو اترك خانة البريد فاضية، أو استخدم بريد تاني');return;}
+        throw e1;
+      }
+    }
     let prof;
     try{prof=await sbRPC('bootstrap_admin',{p_code:code,p_name:name});}
     catch(e){authClear();throw e;}
@@ -722,7 +747,7 @@ async function doChangePassword(){
   try{
     try{await authSignIn(AUTH.email,oldPass);}
     catch(e){showErr(e.code==='invalid_credentials'||/invalid login/i.test(e.message)?'كلمة المرور الحالية غير صحيحة':authErrMsg(e));return;}
-    await authFetch('user',{method:'PUT',token:AUTH.access_token,body:{password:newPass}});
+    await authFetch('user',{method:'PUT',token:AUTH.access_token,body:{password:newPass,current_password:oldPass}});
   }catch(e){showErr(authErrMsg(e));return;}
   logAudit('تغيير كلمة المرور','نظام',CUSER.id,`تم تغيير كلمة مرور المستخدم: ${CUSER.name}`);
   closeModal();
@@ -1341,9 +1366,9 @@ function showStmHistory(recordId, recType){
 function showVioDetail(id){
   const v=DB.violations.find(x=>x.id===id);if(!v)return;
   const ST_VI={جديدة:'bg-b',مفتوحة:'bg-c','تحت المتابعة':'bg-a','تم الإجراء':'bg-g',مغلقة:'bg-gr'};
-  openModal(`⚠️ تفاصيل المخالفة ${id}`,`
+  openModal(`⚠️ تفاصيل المخالفة رقم ${vioSeq(v)}`,`
   <div class="dg">
-    <div class="di"><div class="dl">رقم المخالفة</div><div class="dv" style="color:var(--amber2);font-weight:800">${v.id}</div></div>
+    <div class="di"><div class="dl">رقم المخالفة (حسب التاريخ)</div><div class="dv" style="color:var(--amber2);font-weight:800">${vioSeq(v)} <span style="font-size:10px;color:var(--muted);font-weight:400">(${v.id})</span></div></div>
     <div class="di"><div class="dl">التاريخ والوقت</div><div class="dv">${fmtD(v.date)} ${v.time||''}</div></div>
     <div class="di"><div class="dl">المصنع</div><div class="dv">${esc(v.factory||'—')}</div></div>
     <div class="di"><div class="dl">المنطقة</div><div class="dv">${esc(v.area||'—')}</div></div>
@@ -1840,12 +1865,13 @@ function filterViols(){
     if((fr||to)&&!inRange(v.date,fr,to))return false;
     if(q&&!`${v.id} ${v.type} ${v.description} ${v.factory}`.toLowerCase().includes(q))return false;
     return true;
-  }).sort((a,b)=>new Date(b.createdAt||b.date)-new Date(a.createdAt||a.date));
+  });
+  const arrSorted=vioChrono(arr);arr.length=0;arr.push(...arrSorted);
   const ST_VI={جديدة:'bg-b',مفتوحة:'bg-c','تحت المتابعة':'bg-a','تم الإجراء':'bg-g',مغلقة:'bg-gr'};
   const body=document.getElementById('vi-body');if(!body)return;
   if(!arr.length){body.innerHTML=`<tr><td colspan="8" class="empty">لا توجد مخالفات</td></tr>`;return;}
   body.innerHTML=arr.map(v=>`<tr>
-    <td><span style="color:var(--amber2);font-weight:800">${v.id}</span></td>
+    <td><span style="color:var(--amber2);font-weight:800" title="المعرّف: ${v.id}">${vioSeq(v)}</span></td>
     <td>${v.eventId?`<span style="color:var(--blue2);cursor:pointer" onclick="showEventDetail('${v.eventId}')">${v.eventId}</span>`:'—'}</td>
     <td style="white-space:nowrap;font-size:11px">${fmtD(v.date)}</td>
     <td>${esc(v.factory||'—')}</td>
@@ -2413,6 +2439,7 @@ function renderComparisons(){
     <div class="ctitle" style="margin-bottom:14px">⚙️ إعدادات المقارنة</div>
     <div class="form-row">
       <div class="fg"><label class="fl">نوع المقارنة</label><select class="fc" id="cmp-type" onchange="updateCmpInputs()"><option value="month">شهر مقابل شهر</option><option value="year">سنة مقابل سنة</option><option value="factory">مصنع مقابل مصنع</option><option value="custom">فترة مخصصة</option></select></div>
+      <div class="fg"><label class="fl">المقارنة على</label><select class="fc" id="cmp-src"><option value="vio" ${DB.violations.length>=DB.events.length?'selected':''}>المخالفات</option><option value="ev" ${DB.violations.length<DB.events.length?'selected':''}>الأحداث</option><option value="all">الأحداث + المخالفات</option></select></div>
     </div>
     <div id="cmp-inputs" style="margin-top:8px"></div>
     <button class="btn bp" onclick="runCmp()" style="margin-top:12px">⚖️ تشغيل المقارنة</button>
@@ -2432,19 +2459,21 @@ function updateCmpInputs(){
   else html=`<div class="form-row"><div class="fg"><label class="fl">الفترة الأولى من</label><input type="date" class="fc" id="c-f1d" value="${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01"></div><div class="fg"><label class="fl">إلى</label><input type="date" class="fc" id="c-t1d"></div><div class="fg"><label class="fl">الفترة الثانية من</label><input type="date" class="fc" id="c-f2d"></div><div class="fg"><label class="fl">إلى</label><input type="date" class="fc" id="c-t2d"></div></div>`;
   document.getElementById('cmp-inputs').innerHTML=html;
 }
+function _cmpSrc(){const v=document.getElementById('cmp-src')?.value||'vio';return v==='ev'?DB.events:v==='all'?[...DB.events,...DB.violations]:DB.violations;}
 function runCmp(){
   const type=document.getElementById('cmp-type').value;
   let evts1=[],evts2=[],lbl1='',lbl2='';
-  if(type==='month'){const m1=parseInt(document.getElementById('c-m1').value);const y1=parseInt(document.getElementById('c-y1').value);const m2=parseInt(document.getElementById('c-m2').value);const y2=parseInt(document.getElementById('c-y2').value);const f1=`${y1}-${String(m1).padStart(2,'0')}-01`;const t1=`${y1}-${String(m1).padStart(2,'0')}-31`;const f2=`${y2}-${String(m2).padStart(2,'0')}-01`;const t2=`${y2}-${String(m2).padStart(2,'0')}-31`;evts1=DB.events.filter(e=>inRange(e.date,f1,t1));evts2=DB.events.filter(e=>inRange(e.date,f2,t2));lbl1=`${MONTHS_AR[m1-1]} ${y1}`;lbl2=`${MONTHS_AR[m2-1]} ${y2}`;}
-  else if(type==='year'){const y1=document.getElementById('c-yr1').value;const y2=document.getElementById('c-yr2').value;evts1=DB.events.filter(e=>e.date?.startsWith(y1));evts2=DB.events.filter(e=>e.date?.startsWith(y2));lbl1=`سنة ${y1}`;lbl2=`سنة ${y2}`;}
-  else if(type==='factory'){const f1=document.getElementById('c-f1').value;const f2=document.getElementById('c-f2').value;evts1=DB.events.filter(e=>e.factory===f1);evts2=DB.events.filter(e=>e.factory===f2);lbl1=f1;lbl2=f2;}
-  else{const f1d=document.getElementById('c-f1d').value;const t1d=document.getElementById('c-t1d').value;const f2d=document.getElementById('c-f2d').value;const t2d=document.getElementById('c-t2d').value;evts1=DB.events.filter(e=>inRange(e.date,f1d,t1d));evts2=DB.events.filter(e=>inRange(e.date,f2d,t2d));lbl1=`${fmtD(f1d)}—${fmtD(t1d)}`;lbl2=`${fmtD(f2d)}—${fmtD(t2d)}`;}
-  const mk=(e)=>({total:e.length,closed:e.filter(x=>['مغلق','مكتمل','تم الحل'].includes(x.status)).length,late:e.filter(x=>x.status==='متأخر').length,crit:e.filter(x=>x.severity==='حرجة').length,high:e.filter(x=>x.severity==='عالية').length,urg:e.filter(x=>x.status==='يحتاج تدخل فوري').length});
+  if(type==='month'){const m1=parseInt(document.getElementById('c-m1').value);const y1=parseInt(document.getElementById('c-y1').value);const m2=parseInt(document.getElementById('c-m2').value);const y2=parseInt(document.getElementById('c-y2').value);const f1=`${y1}-${String(m1).padStart(2,'0')}-01`;const t1=`${y1}-${String(m1).padStart(2,'0')}-31`;const f2=`${y2}-${String(m2).padStart(2,'0')}-01`;const t2=`${y2}-${String(m2).padStart(2,'0')}-31`;evts1=_cmpSrc().filter(e=>inRange(e.date,f1,t1));evts2=_cmpSrc().filter(e=>inRange(e.date,f2,t2));lbl1=`${MONTHS_AR[m1-1]} ${y1}`;lbl2=`${MONTHS_AR[m2-1]} ${y2}`;}
+  else if(type==='year'){const y1=document.getElementById('c-yr1').value;const y2=document.getElementById('c-yr2').value;evts1=_cmpSrc().filter(e=>e.date?.startsWith(y1));evts2=_cmpSrc().filter(e=>e.date?.startsWith(y2));lbl1=`سنة ${y1}`;lbl2=`سنة ${y2}`;}
+  else if(type==='factory'){const f1=document.getElementById('c-f1').value;const f2=document.getElementById('c-f2').value;evts1=_cmpSrc().filter(e=>e.factory===f1);evts2=_cmpSrc().filter(e=>e.factory===f2);lbl1=f1;lbl2=f2;}
+  else{const f1d=document.getElementById('c-f1d').value;const t1d=document.getElementById('c-t1d').value;const f2d=document.getElementById('c-f2d').value;const t2d=document.getElementById('c-t2d').value;evts1=_cmpSrc().filter(e=>inRange(e.date,f1d,t1d));evts2=_cmpSrc().filter(e=>inRange(e.date,f2d,t2d));lbl1=`${fmtD(f1d)}—${fmtD(t1d)}`;lbl2=`${fmtD(f2d)}—${fmtD(t2d)}`;}
+  const mk=(e)=>({total:e.length,closed:e.filter(x=>['مغلق','مغلقة','مكتمل','تم الحل'].includes(x.status)).length,late:e.filter(x=>x.status==='متأخر').length,crit:e.filter(x=>x.severity==='حرجة').length,high:e.filter(x=>x.severity==='عالية').length,urg:e.filter(x=>x.status==='يحتاج تدخل فوري').length});
   const m1=mk(evts1),m2=mk(evts2);
-  const rows=[{l:'إجمالي الأحداث',v1:m1.total,v2:m2.total},{l:'أحداث مغلقة',v1:m1.closed,v2:m2.closed},{l:'أحداث متأخرة',v1:m1.late,v2:m2.late},{l:'أحداث حرجة',v1:m1.crit,v2:m2.crit},{l:'أحداث عالية',v1:m1.high,v2:m2.high},{l:'تدخل فوري',v1:m1.urg,v2:m2.urg},{l:'نسبة الإغلاق',v1:m1.total>0?Math.round((m1.closed/m1.total)*100):0,v2:m2.total>0?Math.round((m2.closed/m2.total)*100):0}];
+  const nm=({vio:'المخالفات',ev:'الأحداث',all:'السجلات'})[document.getElementById('cmp-src')?.value||'vio'];
+  const rows=[{l:'إجمالي '+nm,v1:m1.total,v2:m2.total},{l:nm+' مغلقة',v1:m1.closed,v2:m2.closed},{l:nm+' متأخرة',v1:m1.late,v2:m2.late},{l:nm+' حرجة',v1:m1.crit,v2:m2.crit},{l:nm+' عالية',v1:m1.high,v2:m2.high},{l:'تدخل فوري',v1:m1.urg,v2:m2.urg},{l:'نسبة الإغلاق',v1:m1.total>0?Math.round((m1.closed/m1.total)*100):0,v2:m2.total>0?Math.round((m2.closed/m2.total)*100):0}];
   document.getElementById('cmp-results').innerHTML=`<div class="card"><div class="ctitle" style="margin-bottom:14px">⚖️ نتائج المقارنة: ${esc(lbl1)} مقابل ${esc(lbl2)}</div>
   <div class="tw"><table><thead><tr><th>المؤشر</th><th>${esc(lbl1)}</th><th>${esc(lbl2)}</th><th>الفرق</th><th>التغيير</th></tr></thead><tbody>
-  ${rows.map(r=>{const diff=r.v1-r.v2;const pct=r.v2>0?Math.round((Math.abs(diff)/r.v2)*100):0;const cls=diff>0?'color:var(--grn2)':diff<0?'color:var(--red2)':'color:var(--muted)';const arrow=diff>0?'↑':diff<0?'↓':'→';return`<tr><td style="font-weight:600">${esc(r.l)}</td><td style="font-weight:800;color:var(--blue2)">${r.v1}</td><td style="color:var(--muted)">${r.v2}</td><td style="${cls};font-weight:800">${diff>0?'+':''}${diff}</td><td style="${cls}">${arrow} ${pct}%</td></tr>`;}).join('')}
+  ${rows.map(r=>{const diff=r.v1-r.v2;const pct=r.v2>0?Math.round((Math.abs(diff)/r.v2)*100):0;const cls=diff>0?'color:var(--grn2)':diff<0?'color:var(--red2)':'color:var(--muted)';const arrow=diff>0?'↑':diff<0?'↓':'→';return`<tr><td style="font-weight:600">${esc(r.l)}</td><td style="font-weight:800;color:var(--blue2)">${r.v1}</td><td style="color:var(--muted)">${r.v2}</td><td style="${cls};font-weight:800">${diff>0?'+':''}${diff}</td><td style="${cls}">${arrow} ${r.v2>0?pct+'%':(diff?'جديد':'0%')}</td></tr>`;}).join('')}
   </tbody></table></div></div>`;
 }
 
@@ -3206,7 +3235,7 @@ function exportBar(dataFn, title, tableId=''){
 
 function _buildVioTableHTML(viols, title){
   const COLS=[
-    {k:'#',       get:(_,i)=>i+1,        w:'4%'},
+    {k:'#',       get:v=>vioSeq(v),        w:'4%'},
     {k:'التاريخ', get:v=>v.date||'',     w:'8%'},
     {k:'المصنع',  get:v=>v.factory||'',  w:'9%'},
     {k:'نوع المخالفة',get:v=>v.type||'',w:'10%'},
@@ -3269,14 +3298,16 @@ function _getFilteredVio(){
     const typ=document.getElementById('vi-typ')?.value||'';
     const sev2=document.getElementById('vi-sev')?.value||'';
     const sta=document.getElementById('vi-sta')?.value||'';
-    let vs=[...DB.violations].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    let vs=vioChrono(DB.violations);
     if(q)vs=vs.filter(v=>JSON.stringify(v).toLowerCase().includes(q));
     if(fac)vs=vs.filter(v=>v.factory===fac);
     if(typ)vs=vs.filter(v=>v.type===typ);
     if(sev2)vs=vs.filter(v=>v.severity===sev2);
     if(sta)vs=vs.filter(v=>v.status===sta);
+    const fr=document.getElementById('vi-fr')?.value||'',to=document.getElementById('vi-to')?.value||'';
+    if(fr||to)vs=vs.filter(v=>inRange(v.date,fr,to));
     return vs;
-  }catch(e){return[...DB.violations];}
+  }catch(e){return vioChrono(DB.violations);}
 }
 
 // ── طباعة / PDF جدولي ──
@@ -3300,7 +3331,7 @@ async function vioWordNow(){
     await loadZipL();
     const xe=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const COLS=[
-      {k:'#',       get:(_,i)=>(i+1)+''},
+      {k:'#',       get:v=>vioSeq(v)+''},
       {k:'التاريخ', get:v=>v.date||''},
       {k:'المصنع',  get:v=>v.factory||''},
       {k:'نوع المخالفة',get:v=>v.type||''},
@@ -3447,7 +3478,7 @@ function vioExcelNow(){
   const viols=_getFilteredVio();
   if(!viols.length){toast('لا توجد مخالفات','err');return;}
   const data=viols.map((v,i)=>({
-    '#':i+1,'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
+    '#':vioSeq(v),'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
     'درجة الخطورة':v.severity||'','الحالة':v.status||'',
     'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
     'الشخص المعني':v.concernedParty||'','المسؤول':v.followUpResponsible||'',
@@ -3462,7 +3493,7 @@ function vioCSVNow(){
   const viols=_getFilteredVio();
   if(!viols.length){toast('لا توجد مخالفات','err');return;}
   const data=viols.map((v,i)=>({
-    '#':i+1,'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
+    '#':vioSeq(v),'التاريخ':v.date||'','المصنع':v.factory||'','نوع المخالفة':v.type||'',
     'الخطورة':v.severity||'','الحالة':v.status||'',
     'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
     'المتابعة والإفادة':v.followUpStmt||v.statement?.text||'','ملاحظات':v.notes||''
@@ -3598,7 +3629,7 @@ async function vioPPTXNow(){
       }
 
       addCRBadge(slide);
-      slide.addText(v.id||'',{x:10.8,y:6.8,w:2.5,h:0.55,fontSize:11,color:C.gray,fontFace:'Arial',align:'right',isTextBox:true,margin:0});
+      slide.addText('#'+vioSeq(v),{x:10.8,y:6.8,w:2.5,h:0.55,fontSize:11,color:C.gray,fontFace:'Arial',align:'right',isTextBox:true,margin:0});
     }
 
     // Download as proper .pptx (not ZIP)
@@ -3630,8 +3661,8 @@ function evData(){
   }));
 }
 function viData(){
-  return DB.violations.map(v=>({
-    'رقم المخالفة':v.id,'الحدث المرتبط':v.eventId||'','التاريخ':v.date,
+  return vioChrono(DB.violations).map(v=>({
+    'رقم المخالفة':vioSeq(v),'الحدث المرتبط':v.eventId||'','التاريخ':v.date,
     'المصنع':v.factory||'','المنطقة':v.area||'','الموقع':v.location||'',
     'نوع المخالفة':v.type||'','درجة الخطورة':v.severity||'','الحالة':v.status||'',
     'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
@@ -3869,8 +3900,8 @@ function evData(){
   }));
 }
 function viData(){
-  return DB.violations.map(v=>({
-    'رقم المخالفة':v.id,'الحدث المرتبط':v.eventId||'','التاريخ':v.date,
+  return vioChrono(DB.violations).map(v=>({
+    'رقم المخالفة':vioSeq(v),'الحدث المرتبط':v.eventId||'','التاريخ':v.date,
     'المصنع':v.factory||'','المنطقة':v.area||'','الموقع':v.location||'',
     'نوع المخالفة':v.type||'','درجة الخطورة':v.severity||'','الحالة':v.status||'',
     'الوصف':v.description||'','الإجراء المتخذ':v.actionTaken||'',
@@ -4225,6 +4256,7 @@ async function loadFromSupabase(){
     const sbHasData=(evs&&evs.length>0)||(vis&&vis.length>0)||(facs&&facs.length>0);
     if(sbHasData){
       try{LS.set('ccr_pro_db_backup',JSON.stringify(DB));}catch(e){} // نسخة احتياطية قبل الاستبدال بنسخة السحابة
+      vioSeqReset();
       if(evs!==null)DB.events=evs;if(vis!==null)DB.violations=vis;if(rvs!==null)DB.reviews=rvs;
       if(stms!==null)DB.statements=stms;if(fus!==null)DB.followups=fus;if(tks!==null)DB.tasks=tks;
       if(usrs!==null&&usrs.length>0)DB.users=usrs;if(facs!==null)DB.factories=facs;
