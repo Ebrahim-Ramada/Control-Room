@@ -323,10 +323,20 @@ body.light #loader{background:var(--bg)}
       <div style="font-size:17px;font-weight:900;color:#3b82f6;margin-top:10px">نظام غرفة المراقبة المركزية</div>
       <div style="font-size:11px;color:#64748b;margin-top:4px">Central Control Room System</div>
     </div>
-    <div class="fg"><label class="fl">اسم المستخدم</label><input class="fc" id="li-user" type="text" placeholder="أدخل اسم المستخدم" value="إبراهيم رمضان"></div>
-    <div class="fg"><label class="fl">كلمة المرور</label><input class="fc" id="li-pass" type="password" placeholder="أدخل كلمة المرور" value="1234"></div>
+    <div class="fg"><label class="fl">اسم المستخدم أو البريد الإلكتروني</label><input class="fc" id="li-user" type="text" autocomplete="username" placeholder="أدخل اسم المستخدم"></div>
+    <div class="fg"><label class="fl">كلمة المرور</label><input class="fc" id="li-pass" type="password" autocomplete="current-password" placeholder="أدخل كلمة المرور"></div>
+    <div class="fg" id="li-newpass-wrap" style="display:none"><label class="fl" style="color:#f59e0b">🔐 تحديث الأمان: اختر كلمة مرور جديدة (6 أحرف على الأقل) — مرة واحدة فقط</label><input class="fc" id="li-newpass" type="password" autocomplete="new-password" placeholder="كلمة المرور الجديدة"></div>
     <div id="li-err" style="color:#ef4444;font-size:12px;margin-bottom:10px;display:none"></div>
-    <button class="btn bp" style="width:100%;padding:12px;font-size:14px" onclick="doLogin()">تسجيل الدخول →</button>
+    <button class="btn bp" id="li-btn" style="width:100%;padding:12px;font-size:14px" onclick="doLogin()">تسجيل الدخول →</button>
+    <div style="text-align:center;margin-top:14px"><a href="#" onclick="toggleBootstrap();return false" style="font-size:11px;color:#64748b;text-decoration:underline">أول مرة بعد التحويل؟ إعداد المدير</a></div>
+    <div id="bs-box" style="display:none;margin-top:12px;padding:12px;border:1px solid #334155;border-radius:10px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;line-height:1.7">يُستخدم مرة واحدة فقط لإنشاء أول مدير. كود الإعداد ظهر لك في نتيجة ملف <b>auth_migration.sql</b> داخل Supabase.</div>
+      <div class="fg"><label class="fl">كود الإعداد</label><input class="fc" id="bs-code" type="text" autocomplete="off"></div>
+      <div class="fg"><label class="fl">اسم المدير (كما سيظهر)</label><input class="fc" id="bs-name" type="text" value="إبراهيم رمضان"></div>
+      <div class="fg"><label class="fl">البريد الإلكتروني (اختياري)</label><input class="fc" id="bs-email" type="email" autocomplete="off" placeholder="name@example.com"></div>
+      <div class="fg"><label class="fl">كلمة مرور جديدة (6 أحرف على الأقل)</label><input class="fc" id="bs-pass" type="password" autocomplete="new-password"></div>
+      <button class="btn bp" style="width:100%" onclick="doBootstrap()">إنشاء المدير والدخول</button>
+    </div>
   </div>
   </div>
 </div>
@@ -521,11 +531,11 @@ const FU_STATUSES=['مجدولة','قيد التنفيذ','مكتملة','متأ
 const TASK_STATUSES=['جديدة','قيد التنفيذ','معلقة','مكتملة','ملغاة'];
 const PRIORITIES=['منخفضة','عادية','عالية','عاجلة'];
 const USERS_DEF=[
-  {id:'u1',name:'إبراهيم رمضان',role:'admin',pass:'1234',active:true},
-  {id:'u2',name:'أحمد عزيز',role:'supervisor',pass:'1234',active:true},
-  {id:'u3',name:'محمود قنديل',role:'user',pass:'1234',active:true},
-  {id:'u4',name:'سيد عبدالله',role:'user',pass:'1234',active:true},
-  {id:'u5',name:'محمد شورة',role:'user',pass:'1234',active:true},
+  {id:'u1',name:'إبراهيم رمضان',role:'admin',active:true},
+  {id:'u2',name:'أحمد عزيز',role:'supervisor',active:true},
+  {id:'u3',name:'محمود قنديل',role:'user',active:true},
+  {id:'u4',name:'سيد عبدالله',role:'user',active:true},
+  {id:'u5',name:'محمد شورة',role:'user',active:true},
 ];
 const EV_TYPES_DEF=['حدث أمني','مخالفة سلامة','مخالفة تشغيلية','مخالفة أمنية','حادث','سلوك مخالف','دخول غير مصرح','خروج غير مصرح','حركة غير طبيعية','مشكلة في إجراءات السلامة','ملاحظة أثناء المراقبة','مراجعة مطلوبة','إفادة مطلوبة','طلب متابعة','حدث آخر'];
 const VIO_TYPES_DEF=['مخالفة سلامة','مخالفة أمنية','مخالفة تشغيلية','مخالفة إجرائية','سلوك غير لائق','عدم ارتداء معدات الحماية','مخالفة دخول/خروج','إهمال في العمل','مخالفة أخرى'];
@@ -574,43 +584,101 @@ function nid(prefix,arr){
 //  AUTH
 // ══════════════════════════════════════════════════
 let CUSER=null;
-
-function doLogin(){
-  const u=document.getElementById('li-user')?.value?.trim();
-  const p=document.getElementById('li-pass')?.value?.trim();
-  const users=DB.users.length?DB.users:USERS_DEF;
-  // Try exact name match
-  let found=users.find(x=>x.name===u&&x.pass===p&&x.active!==false);
-  if(!found){
-    // Try first name or ID
-    found=users.find(x=>{const nm=x.name.split(' ')[0];return(nm===u||x.id===u)&&x.pass===p;});
-  }
-  if(!found){
-    // Role aliases: admin / supervisor / user
-    const aliases={admin:'admin',مدير:'admin',supervisor:'supervisor',مشرف:'supervisor',user:'user',مستخدم:'user'};
-    const role=aliases[u?.toLowerCase()];
-    if(role)found=users.find(x=>x.role===role&&x.pass===p&&x.active!==false);
-  }
-  if(!found){
-    const err=document.getElementById('li-err');
-    if(err){err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة';err.style.display='block';}
-    return;
-  }
-  CUSER=found;
+let _loginBusy=false;
+function toggleBootstrap(){const b=document.getElementById('bs-box');if(b)b.style.display=b.style.display==='none'?'block':'none';}
+function _liErr(msg){const err=document.getElementById('li-err');if(err){err.textContent=msg;err.style.display=msg?'block':'none';}}
+function finishLogin(prof){
+  CUSER={id:prof.id,name:prof.name,role:prof.role,active:true,email:prof.email||AUTH?.email||''};
+  if(!Array.isArray(DB.users))DB.users=[];
+  const ex=DB.users.find(u=>u.id===CUSER.id);
+  if(ex){ex.name=CUSER.name;ex.role=CUSER.role;ex.active=true;if(CUSER.email)ex.email=CUSER.email;}else DB.users.push({id:CUSER.id,name:CUSER.name,role:CUSER.role,active:true,email:CUSER.email});
+  DB.users.forEach(u=>{delete u.pass;}); // لا كلمات مرور على الجهاز
   LS.set('ccr_session',JSON.stringify({id:CUSER.id,name:CUSER.name,role:CUSER.role}));
+  _liErr('');['li-pass','li-newpass','bs-pass'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  const w=document.getElementById('li-newpass-wrap');if(w)w.style.display='none';
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('sb-av').textContent=CUSER.name[0];
   document.getElementById('sb-uname').textContent=CUSER.name;
-  document.getElementById('sb-urole').textContent=CUSER.role==='admin'?'مدير النظام':CUSER.role==='supervisor'?'مشرف':'مستخدم';
+  document.getElementById('sb-urole').textContent=CUSER.role==='admin'?'مدير النظام':CUSER.role==='supervisor'?'مشرف':CUSER.role==='viewer'?'عارض':'مستخدم';
+  saveDB();
   logAudit('تسجيل دخول','نظام','—',`تسجيل دخول ناجح للمستخدم: ${CUSER.name}`);
   initApp();
 }
 
-function doLogout(){
+async function doLogin(){
+  if(_loginBusy)return;
+  const L=document.getElementById('li-user')?.value?.trim();
+  const P=document.getElementById('li-pass')?.value?.trim();
+  if(!L||!P){_liErr('اكتب اسم المستخدم وكلمة المرور');return;}
+  _loginBusy=true;const btn=document.getElementById('li-btn');if(btn){btn.disabled=true;btn.textContent='جاري الدخول...';}
+  try{
+    _liErr('');
+    if(!(await ensureSbReady())){_liErr('تسجيل الدخول محتاج اتصال بالإنترنت');return;}
+    const email=await sbRPC('login_email_for',{p_login:L},false);
+    if(!email){_liErr('اسم المستخدم أو كلمة المرور غير صحيحة');return;}
+    try{
+      await authSignIn(email,P);
+    }catch(e){
+      const bad=e.code==='invalid_credentials'||/invalid login credentials/i.test(e.message);
+      if(!bad)throw e;
+      const st=await sbRPC('login_status',{p_login:L},false);
+      if(st!=='legacy'){_liErr('اسم المستخدم أو كلمة المرور غير صحيحة');return;}
+      // ── ترحيل مستخدم قديم لحساب Auth (مرة واحدة) ──
+      if(!(await sbRPC('legacy_pass_ok',{p_login:L,p_pass:P},false))){_liErr('اسم المستخدم أو كلمة المرور غير صحيحة');return;}
+      const wrap=document.getElementById('li-newpass-wrap');
+      let newP=document.getElementById('li-newpass')?.value?.trim()||'';
+      let useP=P;
+      if(P.length<6){
+        if(!newP){if(wrap)wrap.style.display='block';_liErr('كلمة مرورك القديمة قصيرة. اكتب كلمة مرور جديدة (6 أحرف على الأقل) في الخانة الجديدة ثم اضغط دخول');return;}
+        if(newP.length<6){_liErr('كلمة المرور الجديدة لازم تكون 6 أحرف على الأقل');return;}
+        useP=newP;
+      }
+      try{await authSignUp(email,useP);}
+      catch(e2){
+        if(e2.code==='user_already_exists'||/already registered/i.test(e2.message)){await authSignIn(email,useP);}
+        else throw e2;
+      }
+      const prof=await sbRPC('claim_legacy_profile',{p_login:L,p_pass:P});
+      if(!prof){authClear();_liErr('تعذّر ترحيل الحساب');return;}
+      toast('✅ تم تحديث حسابك لنظام الدخول الآمن','ok');
+      finishLogin(prof);return;
+    }
+    const prof=await sbRPC('my_profile',{});
+    if(!prof){authClear();_liErr('الحساب ده مش مفعّل أو مش مربوط بمستخدم في النظام. كلّم المدير');return;}
+    finishLogin(prof);
+  }catch(e){
+    _liErr(authErrMsg(e));
+  }finally{
+    _loginBusy=false;if(btn){btn.disabled=false;btn.textContent='تسجيل الدخول →';}
+  }
+}
+
+async function doBootstrap(){
+  const code=document.getElementById('bs-code')?.value?.trim();
+  const name=document.getElementById('bs-name')?.value?.trim();
+  const mail=(document.getElementById('bs-email')?.value?.trim()||'').toLowerCase();
+  const pass=document.getElementById('bs-pass')?.value?.trim();
+  if(!code||!name||!pass){_liErr('املأ كود الإعداد والاسم وكلمة المرور');return;}
+  if(pass.length<6){_liErr('كلمة المرور 6 أحرف على الأقل');return;}
+  try{
+    if(!(await ensureSbReady())){_liErr('محتاج اتصال بالإنترنت');return;}
+    const email=mail||('admin'+Date.now()+'@ccr-app.com');
+    await authSignUp(email,pass);
+    let prof;
+    try{prof=await sbRPC('bootstrap_admin',{p_code:code,p_name:name});}
+    catch(e){authClear();throw e;}
+    if(!prof){authClear();_liErr('تعذّر إنشاء المدير');return;}
+    toast('✅ تم إنشاء المدير','ok');finishLogin(prof);
+  }catch(e){_liErr(authErrMsg(e));}
+}
+
+async function doLogout(){
   if(!confirm('هل تريد تسجيل الخروج؟'))return;
   logAudit('تسجيل خروج','نظام','—','تسجيل خروج');
   saveDB();LS.del('ccr_session');LS.del('ccr_last_action');
+  try{if(AUTH)await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+AUTH.access_token}});}catch(e){}
+  authClear();
   CUSER=null;
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
@@ -629,7 +697,7 @@ function openChangePassword(){
   </div>
   <div class="fg">
     <label class="fl">كلمة المرور الجديدة *</label>
-    <input type="password" class="fc" id="cp-new" placeholder="أدخل كلمة المرور الجديدة (4 أحرف على الأقل)">
+    <input type="password" class="fc" id="cp-new" placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)">
   </div>
   <div class="fg">
     <label class="fl">تأكيد كلمة المرور الجديدة *</label>
@@ -639,46 +707,48 @@ function openChangePassword(){
   [{label:'🔑 تغيير كلمة المرور',cls:'bp',fn:'doChangePassword()'}]);
 }
 
-function doChangePassword(){
+async function doChangePassword(){
   const oldPass = document.getElementById('cp-old')?.value?.trim();
   const newPass = document.getElementById('cp-new')?.value?.trim();
   const confirm_ = document.getElementById('cp-confirm')?.value?.trim();
   const errEl = document.getElementById('cp-err');
-
   const showErr=(msg)=>{if(errEl){errEl.textContent=msg;errEl.style.display='block';}};
 
   if(!oldPass||!newPass||!confirm_){showErr('يرجى ملء جميع الحقول');return;}
-
-  // Verify current password
-  if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
-  const uIdx=DB.users.findIndex(u=>u.id===CUSER?.id);
-  const u=uIdx>-1?DB.users[uIdx]:null;
-
-  if(!u||u.pass!==oldPass){showErr('كلمة المرور الحالية غير صحيحة');return;}
-  if(newPass.length<4){showErr('كلمة المرور الجديدة يجب أن تكون 4 أحرف على الأقل');return;}
+  if(newPass.length<6){showErr('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل');return;}
   if(newPass===oldPass){showErr('كلمة المرور الجديدة يجب أن تختلف عن الحالية');return;}
   if(newPass!==confirm_){showErr('كلمة المرور الجديدة وتأكيدها غير متطابقين');return;}
-
-  // Apply change
-  DB.users[uIdx].pass=newPass;
-  saveDB();
+  if(!AUTH?.email){showErr('سجّل خروج ثم ادخل من جديد قبل تغيير كلمة المرور');return;}
+  try{
+    try{await authSignIn(AUTH.email,oldPass);}
+    catch(e){showErr(e.code==='invalid_credentials'||/invalid login/i.test(e.message)?'كلمة المرور الحالية غير صحيحة':authErrMsg(e));return;}
+    await authFetch('user',{method:'PUT',token:AUTH.access_token,body:{password:newPass}});
+  }catch(e){showErr(authErrMsg(e));return;}
   logAudit('تغيير كلمة المرور','نظام',CUSER.id,`تم تغيير كلمة مرور المستخدم: ${CUSER.name}`);
-  // 🔧 إصلاح جذري: دي كانت الفجوة الحقيقية — تغيير كلمة المرور مكانش بيتبعت
-  // لـSupabase خالص، فكان بيفضل محليًا على نفس الجهاز بس. دلوقتي بنزامنه فعليًا،
-  // ولو فشل، بنعرض تحذير واضح بدل ما نسيبك تفتكر إن التغيير وصل لكل الأجهزة
-  sbSyncUsr(DB.users[uIdx]).then(ok=>{
-    if(!ok) toast('⚠️ كلمة المرور اتغيّرت على الجهاز ده بس — تعذّر حفظها على السحاب، يعني هتفضل كلمة المرور القديمة شغّالة على باقي الأجهزة. تأكد من الاتصال بالإنترنت وجرّب تاني','err');
-  });
   closeModal();
-  toast('✅ تم تغيير كلمة المرور بنجاح','ok');
+  toast('✅ تم تغيير كلمة المرور على السحاب — هتتطبق على كل أجهزتك','ok');
 }
 
 function checkSession(){
   try{
-    const s=LS.get('ccr_session');
-    if(s){const d=JSON.parse(s);const users=DB.users.length?DB.users:USERS_DEF;const u=users.find(x=>x.id===d.id&&x.active!==false);if(u){CUSER=u;return true;}}
+    authLoad();
+    if(!AUTH)return false;
+    const d=JSON.parse(LS.get('ccr_session')||'null');
+    if(!d)return false;
+    const u=(DB.users||[]).find(x=>x.id===d.id&&x.active!==false);
+    CUSER=u?{...u}:{id:d.id,name:d.name,role:d.role,active:true};
+    return true;
   }catch{}
   return false;
+}
+// التحقق من أن الحساب لسه مفعّل (بعد فتح التطبيق بجلسة محفوظة)
+async function verifySessionProfile(){
+  if(!AUTH||!CUSER)return;
+  try{
+    const prof=await sbRPC('my_profile',{});
+    if(prof===null){authExpired('تم تعطيل حسابك أو حذفه — كلّم المدير');return;}
+    if(prof&&(prof.role!==CUSER.role||prof.name!==CUSER.name)){CUSER.role=prof.role;CUSER.name=prof.name;LS.set('ccr_session',JSON.stringify({id:CUSER.id,name:CUSER.name,role:CUSER.role}));}
+  }catch(e){/* أوفلاين: نكمل */}
 }
 
 // ══════════════════════════════════════════════════
@@ -2807,37 +2877,63 @@ function renderUsersMgmt(){
   </tbody></table></div>`;
 }
 
-function deleteUser(id){
-  if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
+async function deleteUser(id){
+  if(!CUSER||CUSER.role!=='admin'){toast('الحذف للمدير فقط','err');return;}
   const u=DB.users.find(x=>x.id===id);
   if(!u){toast('المستخدم غير موجود','err');return;}
   if(u.id===CUSER?.id){toast('لا يمكن حذف المستخدم الحالي المسجّل دخوله','err');return;}
-  if(!confirm(`حذف المستخدم "${u.name}" نهائياً؟\n\nلن يتم حذف السجلات المرتبطة به.`))return;
+  if(!confirm(`حذف المستخدم "${u.name}" نهائياً؟\n\nسيتم حذف حساب دخوله. لن يتم حذف السجلات المرتبطة به.`))return;
+  try{
+    if(!(await ensureSbReady()))throw new Error('Failed to fetch');
+    await sbRPC('admin_delete_user',{p_user_id:id});
+  }catch(e){toast('❌ '+authErrMsg(e),'err');return;}
   DB.users=DB.users.filter(x=>x.id!==id);
   logAudit('حذف مستخدم','نظام',id,`تم حذف المستخدم: ${u.name}`);
   saveDB();renderUsersMgmt();
   toast(`تم حذف المستخدم "${u.name}" ✅`,'ok');
 }
 function openUserForm(id=''){
-  const u=id?(DB.users.length?DB.users:USERS_DEF).find(x=>x.id===id):{};
+  const u=id?DB.users.find(x=>x.id===id):{};
   openModal(id?'✏️ تعديل مستخدم':'👤 مستخدم جديد',`
   <div class="fg"><label class="fl">الاسم الكامل *</label><input type="text" class="fc" id="uf-name" value="${esc(u?.name||'')}"></div>
-  <div class="fg"><label class="fl">كلمة المرور</label><input type="password" class="fc" id="uf-pass" placeholder="اتركها فارغة للإبقاء على السابقة" value=""></div>
+  ${id?`<div class="fg"><label class="fl">البريد (للقراءة فقط)</label><input type="text" class="fc" value="${esc(u?.email||'—')}" disabled></div>`:`<div class="fg"><label class="fl">البريد الإلكتروني (اختياري)</label><input type="email" class="fc" id="uf-email" placeholder="لو تركته فارغًا يتولّد تلقائيًا — الدخول بالاسم"></div>`}
+  <div class="fg"><label class="fl">${id?'كلمة مرور جديدة':'كلمة المرور *'}</label><input type="password" class="fc" id="uf-pass" autocomplete="new-password" placeholder="${id?'اتركها فارغة للإبقاء على السابقة':'6 أحرف على الأقل'}" value=""></div>
   <div class="fg"><label class="fl">الدور</label><select class="fc" id="uf-role"><option value="admin" ${u?.role==='admin'?'selected':''}>مدير النظام</option><option value="supervisor" ${u?.role==='supervisor'?'selected':''}>مشرف</option><option value="user" ${u?.role==='user'||!u?.role?'selected':''}>مستخدم</option><option value="viewer" ${u?.role==='viewer'?'selected':''}>عارض</option></select></div>`,[{label:'✅ حفظ',cls:'bp',fn:`saveUser('${id}')`}]);
 }
-function saveUser(id=''){
+async function saveUser(id=''){
+  if(!CUSER||CUSER.role!=='admin'){toast('إدارة المستخدمين للمدير فقط','err');return;}
   const name=document.getElementById('uf-name')?.value?.trim();if(!name){toast('الاسم مطلوب','err');return;}
-  const pass=document.getElementById('uf-pass')?.value;
+  const pass=document.getElementById('uf-pass')?.value?.trim();
   const role=document.getElementById('uf-role')?.value;
-  if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
-  if(id){const idx=DB.users.findIndex(u=>u.id===id);if(idx>-1){DB.users[idx].name=name;DB.users[idx].role=role;if(pass)DB.users[idx].pass=pass;}}
-  else{DB.users.push({id:'u'+Date.now(),name,role,pass:pass||'1234',active:true});}
-  { const _uid=id||DB.users[DB.users.length-1]?.id; const _u=DB.users.find(x=>x.id===_uid); if(_u) sbSyncUsr(_u); } // 🔧 إصلاح: مزامنة المستخدم
+  const mail=(document.getElementById('uf-email')?.value?.trim()||'').toLowerCase();
+  if(pass&&pass.length<6){toast('كلمة المرور 6 أحرف على الأقل','err');return;}
+  try{
+    if(!(await ensureSbReady()))throw new Error('Failed to fetch');
+    if(id){
+      const u=DB.users.find(x=>x.id===id);if(!u)return;
+      const nu={...u,name,role};
+      if(!(await sbSyncUsr(nu)))throw new Error('تعذّر حفظ بيانات المستخدم على السحاب');
+      if(pass)await sbRPC('admin_set_password',{p_user_id:id,p_new:pass});
+      Object.assign(u,nu);
+    }else{
+      if(!pass){toast('كلمة المرور مطلوبة (6 أحرف على الأقل)','err');return;}
+      const uid='u'+Date.now();
+      const email=mail||(uid+'@ccr-app.com');
+      const authId=await authSignUp(email,pass,false);
+      await sbRPC('admin_register_profile',{p_auth_id:authId,p_id:uid,p_name:name,p_role:role});
+      DB.users.push({id:uid,name,role,active:true,email});
+    }
+  }catch(e){toast('❌ '+authErrMsg(e),'err');return;}
   saveDB();closeModal();renderUsersMgmt();toast('تم الحفظ ✅','ok');
 }
-function toggleUserActive(id){
-  if(!DB.users.length)DB.users=JSON.parse(JSON.stringify(USERS_DEF));
-  const u=DB.users.find(x=>x.id===id);if(!u)return;u.active=!u.active;sbSyncUsr(u);/* 🔧 إصلاح: مزامنة تغيير حالة المستخدم */saveDB();renderUsersMgmt();
+async function toggleUserActive(id){
+  if(!CUSER||CUSER.role!=='admin'){toast('للمدير فقط','err');return;}
+  const u=DB.users.find(x=>x.id===id);if(!u)return;
+  if(u.id===CUSER.id){toast('لا يمكن تعطيل حسابك الحالي','err');return;}
+  const nu={...u,active:!(u.active!==false)};
+  const ok=await sbSyncUsr(nu);
+  if(!ok){toast('❌ تعذّر تغيير الحالة على السحاب','err');return;}
+  u.active=nu.active;saveDB();renderUsersMgmt();
 }
 
 // ══════════════════════════════════════════════════
@@ -3973,6 +4069,8 @@ const SB_KEY=['eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9','eyJpc3MiOiJzdXBhYmFzZSIsIn
 
 let sb=null,sbReady=false;
 
+function updateSyncTime(){try{LS.set('ccr_last_sync',new Date().toISOString());const el=document.getElementById('sync-status');if(el)el.title='آخر مزامنة: '+new Date().toLocaleTimeString('ar-EG');}catch(e){}}
+async function forceSyncPending(){return true;} // لا توجد قائمة انتظار — الحفظ يرفع فورًا
 function setSyncStatus(st){
   const el=document.getElementById('sync-status');if(!el)return;
   const S={connected:{t:'☁️ متصل',c:'var(--grn2)',b:'rgba(22,163,74,.1)',bc:'rgba(22,163,74,.3)'},syncing:{t:'🔄 يتزامن...',c:'var(--amb2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'},offline:{t:'📴 غير متصل',c:'var(--red2)',b:'rgba(220,38,38,.1)',bc:'rgba(220,38,38,.3)'},error:{t:'⚠️ خطأ',c:'var(--amber2)',b:'rgba(217,119,6,.1)',bc:'rgba(217,119,6,.3)'}};
@@ -3984,18 +4082,96 @@ const MAP_VI={id:'id',date:'date',time:'time',eventId:'event_id',factory:'factor
 const MAP_RV={id:'id',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',statement:'statement',createdAt:'created_at'};
 const MAP_STM={id:'id',date:'date',eventId:'event_id',violationId:'violation_id',party:'party',subject:'subject',text:'text',submitter:'submitter',submittedDate:'submitted_date',status:'status',notes:'notes',createdAt:'created_at'};
 const MAP_FU={id:'id',date:'date',relatedType:'related_type',relatedId:'related_id',responsible:'responsible',action:'action',done:'done',notDone:'not_done',nextDate:'next_date',status:'status',notes:'notes',createdAt:'created_at'};
+const MAP_USR={id:'id',name:'name',role:'role',active:'active',email:'email'};
 const MAP_TK={id:'id',date:'date',title:'title',description:'description',assignedTo:'assigned_to',priority:'priority',dueDate:'due_date',relatedId:'related_id',status:'status',notes:'notes',createdAt:'created_at'};
 
 function toRow(obj,map){const row={};for(const[jk,sk]of Object.entries(map)){if(obj[jk]!==undefined){let v=obj[jk];if(v!==null&&(Array.isArray(v)||(typeof v==='object')))v=JSON.stringify(v);row[sk]=v;}}return row;}
 function fromRow(row,map){const rev=Object.fromEntries(Object.entries(map).map(([k,v])=>[v,k]));const obj={};for(const[sk,jk]of Object.entries(rev)){if(row[sk]!==undefined){let v=row[sk];if(typeof v==='string'&&(v.startsWith('[')||v.startsWith('{'))){try{v=JSON.parse(v);}catch(e){}}obj[jk]=v;}}return obj;}
 
 // sbUpsert and sbDelete defined below in REST section
+
+// ══════════════════════════════════════════════════
+//  🔐 Supabase Auth (تسجيل دخول حقيقي — REST بدون مكتبات)
+// ══════════════════════════════════════════════════
+const AUTH_KEY='ccr_auth';
+let AUTH=null; // {access_token,refresh_token,expires_at,uid,email}
+function authLoad(){try{AUTH=JSON.parse(LS.get(AUTH_KEY)||'null');}catch(e){AUTH=null;}return AUTH;}
+function authClear(){AUTH=null;try{LS.del(AUTH_KEY);}catch(e){}}
+function authSetSession(d){
+  AUTH={access_token:d.access_token,refresh_token:d.refresh_token,
+    expires_at:d.expires_at||(Math.floor(Date.now()/1000)+(d.expires_in||3600)),
+    uid:d.user?.id||AUTH?.uid,email:d.user?.email||AUTH?.email};
+  try{LS.set(AUTH_KEY,JSON.stringify(AUTH));}catch(e){}
+}
+async function authFetch(path,{method='POST',body,token}={}){
+  const res=await fetch(`${SB_URL}/auth/v1/${path}`,{method,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+(token||SB_KEY),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  let j={};try{j=await res.json();}catch(e){}
+  if(!res.ok){const err=new Error(j.msg||j.error_description||j.message||('HTTP '+res.status));err.code=j.error_code||j.error||'';err.status=res.status;throw err;}
+  return j;
+}
+async function authSignIn(email,password){const d=await authFetch('token?grant_type=password',{body:{email,password}});authSetSession(d);return d;}
+// keepSession=false: ينشئ حساب لمستخدم آخر (المدير) من غير ما يغيّر جلسة المدير الحالية
+async function authSignUp(email,password,keepSession=true){
+  const j=await authFetch('signup',{body:{email,password}});
+  const uid=j.user?.id||j.id;
+  // لو "Confirm email" شغّال، Supabase مبيرجّعش جلسة → لازم نطلب من المستخدم يقفله
+  if(!j.access_token||!uid){const e=new Error('confirm');e.code='confirm_email_on';throw e;}
+  if(keepSession)authSetSession(j);
+  return uid;
+}
+function authErrMsg(e){
+  const c=(e&&e.code)||'',m=(e&&e.message)||'';
+  if(c==='invalid_credentials'||/invalid login credentials/i.test(m))return 'اسم المستخدم أو كلمة المرور غير صحيحة';
+  if(c==='user_already_exists'||/already registered|already exists/i.test(m))return 'الحساب ده متسجّل قبل كده بكلمة مرور مختلفة';
+  if(c==='weak_password'||/password should be|at least/i.test(m))return 'كلمة المرور ضعيفة — 6 أحرف على الأقل';
+  if(c==='confirm_email_on')return 'لازم تلغي خيار "Confirm email" من Supabase: Authentication ← Sign In / Providers ← Email';
+  if(c==='signup_disabled'||/signups? (not allowed|disabled)/i.test(m))return 'التسجيل مقفول في Supabase — فعّل "Allow new users to sign up"';
+  if(/rate limit/i.test(c+m))return 'محاولات كتير — استنى دقيقة وجرّب تاني';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return 'مفيش اتصال بالإنترنت';
+  const map={invalid_legacy:'كلمة المرور القديمة غير صحيحة',bad_setup_code:'كود الإعداد غير صحيح',already_has_admin:'يوجد مدير بالفعل — سجّل دخول عادي',admin_only:'العملية دي للمدير فقط',password_too_short:'كلمة المرور 6 أحرف على الأقل',cannot_delete_self:'لا يمكن حذف حسابك الحالي',name_required:'الاسم مطلوب',user_not_found:'المستخدم غير موجود',bad_role:'دور غير صالح'};
+  for(const k in map)if(m.includes(k))return map[k];
+  return m||'خطأ غير معروف';
+}
+let _authRefreshing=null;
+function authRefresh(){
+  if(!AUTH?.refresh_token)return Promise.resolve(false);
+  if(_authRefreshing)return _authRefreshing;
+  const p=(async()=>{
+    try{
+      const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:AUTH.refresh_token})});
+      if(res.ok){authSetSession(await res.json());return true;}
+      if(res.status>=400&&res.status<500){authExpired();return false;}
+      return false;
+    }catch(e){return false;} // أوفلاين: نكمل بالجلسة المحفوظة
+  })();
+  _authRefreshing=p;p.finally(()=>{_authRefreshing=null;});return p;
+}
+async function authToken(){
+  if(!AUTH)return SB_KEY;
+  if(AUTH.expires_at&&AUTH.expires_at*1000-Date.now()<60000)await authRefresh();
+  return AUTH?AUTH.access_token:SB_KEY;
+}
+function authExpired(msg){
+  authClear();try{LS.del('ccr_session');}catch(e){}
+  if(!CUSER)return;CUSER=null;
+  try{document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';}catch(e){}
+  try{toast(msg||'انتهت الجلسة — سجّل دخول مرة تانية','err');}catch(e){}
+}
+async function sbRPC(fn,args={},withAuth=true){
+  const tok=withAuth?await authToken():SB_KEY;
+  const res=await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(args)});
+  const t=await res.text();let j=null;try{j=t?JSON.parse(t):null;}catch(e){j=t;}
+  if(!res.ok){throw new Error((j&&(j.message||j.hint))||('HTTP '+res.status));}
+  return j;
+}
 // ── NO CDN: Supabase REST API مباشر ──
-async function sbREST(method,table,body=null,query='',extra={}){
+async function sbREST(method,table,body=null,query='',extra={},_retried=false){
   const url=`${SB_URL}/rest/v1/${table}${query?'?'+query:''}`;
-  const h={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Accept':'application/json',...extra};
+  const tok=await authToken();
+  const h={'apikey':SB_KEY,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Accept':'application/json',...extra};
   const opts={method,headers:h};if(body)opts.body=JSON.stringify(body);
-  const res=await fetch(url,opts);
+  let res=await fetch(url,opts);
+  if(res.status===401&&AUTH&&!_retried&&await authRefresh())return sbREST(method,table,body,query,extra,true);
   if(!res.ok&&res.status!==204){const t=await res.text().catch(()=>'');throw new Error(`${res.status}: ${t.slice(0,100)}`);}
   if(res.status===204)return true;
   return res.json().catch(()=>[]);
@@ -4072,7 +4248,7 @@ function sbSyncStm(s,del=false){return ensureSbReady().then(ok=>{if(!ok)return f
 function sbSyncFu(f,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('followups',f.id):sbUpsert('followups',toRow(f,MAP_FU));});}
 function sbSyncTk(t,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('tasks',t.id):sbUpsert('tasks',toRow(t,MAP_TK));});}
 function sbSyncFac(f,del=false){if(!sbReady)return Promise.resolve(false);return del?sbDelete('factories',f.id):sbUpsert('factories',f);}
-function sbSyncUsr(u,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('users',u.id):sbUpsert('users',u);});}
+function sbSyncUsr(u,del=false){return ensureSbReady().then(ok=>{if(!ok)return false;return del?sbDelete('users',u.id):sbUpsert('users',toRow(u,MAP_USR));});}
 
 async function fullSyncToSupabase(){
   if(!sbReady){toast('غير متصل بـ Supabase','err');return;}
@@ -4085,7 +4261,6 @@ async function fullSyncToSupabase(){
       ...DB.statements.map(s=>sbUpsert('statements',toRow(s,MAP_STM))),
       ...DB.followups.map(f=>sbUpsert('followups',toRow(f,MAP_FU))),
       ...DB.tasks.map(t=>sbUpsert('tasks',toRow(t,MAP_TK))),
-      ...DB.users.map(u=>sbUpsert('users',u)),
       ...DB.factories.map(f=>sbUpsert('factories',f)),
     ]);
     setSyncStatus('connected');
@@ -4130,7 +4305,8 @@ async function checkSupabaseConnection(){
 // ══ 🩺 تشخيص التزامن: العدد على الجهاز vs العدد في السحاب + رفع حقيقي بنتيجة صريحة ══
 const SYNC_TABLES=[['events','أحداث',MAP_EV,'events'],['violations','مخالفات',MAP_VI,'violations'],['reviews','مراجعات',MAP_RV,'reviews'],['statements','إفادات',MAP_STM,'statements'],['followups','متابعات',MAP_FU,'followups'],['tasks','مهام',MAP_TK,'tasks'],['users','مستخدمون',null,'users'],['factories','مصانع',null,'factories']];
 async function sbCount(table){
-  const res=await fetch(`${SB_URL}/rest/v1/${table}?select=id&limit=1`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'count=exact'}});
+  const tok=await authToken();
+  const res=await fetch(`${SB_URL}/rest/v1/${table}?select=id&limit=1`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok,'Prefer':'count=exact'}});
   if(!res.ok){const t=await res.text().catch(()=>'');throw new Error(res.status+': '+t.slice(0,120));}
   const cr=res.headers.get('content-range')||'';const m=cr.match(/\/(\d+)$/);
   return m?parseInt(m[1],10):0;
@@ -4139,19 +4315,20 @@ async function runSyncDiag(){
   const box=document.getElementById('diag-out');if(!box)return;
   box.innerHTML='<div style="padding:10px;text-align:center">⏳ جاري الفحص...</div>';
   const ok=await ensureSbReady();
+  if(ok&&!AUTH){box.innerHTML='<div style="padding:10px;color:#f87171;font-weight:700">❌ مفيش جلسة دخول. سجّل خروج وادخل تاني.</div>';return;}
   if(!ok){box.innerHTML='<div style="padding:10px;color:#f87171;font-weight:700">❌ التطبيق مش قادر يوصل لـ Supabase. تأكد من الإنترنت وجرّب تاني.</div>';return;}
   let rows='',needPush=0,errs=[];
   for(const [key,label] of SYNC_TABLES){
     const local=(DB[key]||[]).length;let cloud='؟',color='var(--muted)',note='';
     try{cloud=await sbCount(key);
       if(cloud===local){color='#4ade80';note='✅ متطابق';}
-      else if(local>cloud){color='#fbbf24';note='⚠️ '+(local-cloud)+' على جهازك مش في السحاب';needPush+=local-cloud;}
+      else if(local>cloud){color='#fbbf24';note='⚠️ '+(local-cloud)+' على جهازك مش في السحاب';if(key!=='users')needPush+=local-cloud;}
       else{color='#60a5fa';note='⬇️ السحاب فيه '+(cloud-local)+' زيادة (اضغط جلب)';}
     }catch(e){color='#f87171';note='❌ '+e.message;errs.push(key+': '+e.message);}
     rows+=`<tr><td style="padding:6px 4px">${label}</td><td style="text-align:center">${local}</td><td style="text-align:center">${cloud}</td><td style="color:${color};font-size:11px;padding:6px 4px">${note}</td></tr>`;
   }
   box.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="color:var(--muted);border-bottom:1px solid var(--border)"><th style="text-align:right;padding:4px">الجدول</th><th>الجهاز</th><th>السحاب</th><th style="text-align:right">الحالة</th></tr>${rows}</table>`+
-   (errs.length?`<div style="margin-top:8px;font-size:11px;color:#f87171">يوجد أخطاء قراءة — غالباً صلاحيات (RLS) ناقصة أو جدول غير موجود. شغّل fix_all_permissions.sql في Supabase.</div>`:'')+
+   (errs.length?`<div style="margin-top:8px;font-size:11px;color:#f87171">يوجد أخطاء قراءة — غالباً صلاحيات (RLS) ناقصة أو جدول غير موجود. شغّل ملف auth_migration.sql في Supabase ثم سجّل خروج وادخل تاني.</div>`:'')+
    (needPush?`<div style="margin-top:8px;font-size:12px;color:#fbbf24">عندك بيانات على الجهاز مش مرفوعة. اضغط «رفع كل بيانات الجهاز».</div>`:'');
 }
 async function pushAllLocalStrict(){
@@ -4161,6 +4338,7 @@ async function pushAllLocalStrict(){
   try{LS.set('ccr_pro_db_backup',JSON.stringify(DB));}catch(e){}
   let report='',totalFail=0,firstErr='';
   for(const [key,label,map] of SYNC_TABLES){
+    if(key==='users'){report+=`<div style="padding:3px 0;font-size:12px;color:var(--muted)">↪ ${label}: يُدارون من شاشة المستخدمين فقط</div>`;continue;}
     const arr=DB[key]||[];let okN=0,failN=0;
     if(box)box.innerHTML=`<div style="padding:10px;text-align:center">⏳ رفع ${label}... (${arr.length})</div>`;
     for(let i=0;i<arr.length;i+=10){
@@ -4172,7 +4350,7 @@ async function pushAllLocalStrict(){
     totalFail+=failN;
     report+=`<div style="padding:3px 0;font-size:12px">${failN?'❌':'✅'} ${label}: نجح ${okN}${failN?' — فشل '+failN:''}</div>`;
   }
-  if(box)box.innerHTML=report+(firstErr?`<div style="margin-top:8px;padding:8px;background:rgba(239,68,68,.12);border-radius:8px;font-size:11px;direction:ltr;text-align:left;word-break:break-all">أول خطأ: ${firstErr.replace(/</g,'&lt;')}</div><div style="margin-top:6px;font-size:11px;color:#f87171">الغالب: صلاحيات (RLS) ناقصة → شغّل fix_all_permissions.sql ثم أعد الرفع.</div>`:'<div style="margin-top:8px;color:#4ade80;font-weight:800">🎉 تم رفع كل البيانات بنجاح. اضغط «فحص» للتأكد.</div>');
+  if(box)box.innerHTML=report+(firstErr?`<div style="margin-top:8px;padding:8px;background:rgba(239,68,68,.12);border-radius:8px;font-size:11px;direction:ltr;text-align:left;word-break:break-all">أول خطأ: ${firstErr.replace(/</g,'&lt;')}</div><div style="margin-top:6px;font-size:11px;color:#f87171">الغالب: صلاحيات (RLS) ناقصة → شغّل auth_migration.sql ثم سجّل خروج وادخل تاني وأعد الرفع.</div>`:'<div style="margin-top:8px;color:#4ade80;font-weight:800">🎉 تم رفع كل البيانات بنجاح. اضغط «فحص» للتأكد.</div>');
   toast(totalFail?`⚠️ فشل رفع ${totalFail} سجل`:'✅ تم رفع كل البيانات','ok');
 }
 
@@ -4266,6 +4444,8 @@ function initApp(){
       return;
     }
     // ✅ متصل — اجلب البيانات من السحابة فوراً
+    await verifySessionProfile();
+    if(!CUSER)return;
     setupRealtime();
     const loaded=await loadFromSupabase().catch(()=>false);
     if(loaded){
