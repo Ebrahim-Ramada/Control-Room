@@ -847,6 +847,7 @@ function goTo(page){
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+page);
   if(pg)pg.classList.add('active');
+  if(page==='reviews'&&curPage!=='reviews')window._rvCat='';
   curPage=page;
   const title=PAGE_TITLES[page]||page;
   document.getElementById('tb-title').textContent=title;
@@ -1396,6 +1397,7 @@ function showRevDetail(id){
   openModal(`🔍 تفاصيل المراجعة ${id}`,`
   <div class="dg">
     <div class="di"><div class="dl">رقم المراجعة</div><div class="dv" style="color:var(--purp2);font-weight:800">${r.id}</div></div>
+    <div class="di"><div class="dl">القسم</div><div class="dv">${revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية'}</div></div>
     <div class="di"><div class="dl">التاريخ</div><div class="dv">${fmtD(r.date)}</div></div>
     <div class="di"><div class="dl">المصنع</div><div class="dv">${esc(r.factory||'—')}</div></div>
     <div class="di"><div class="dl">الموضوع</div><div class="dv">${esc(r.subject||'—')}</div></div>
@@ -1944,11 +1946,30 @@ function deleteVio(id){
 // ══════════════════════════════════════════════════
 //  REVIEWS, STATEMENTS, FOLLOWUPS, TASKS
 // ══════════════════════════════════════════════════
+const REV_CATS=[{k:'خارجية',ic:'🏢',t:'مراجعات خارجية',d:'مراجعات من جهات خارجية'},{k:'الإدارة',ic:'👔',t:'مراجعات الإدارة',d:'مراجعات مطلوبة من الإدارة'}];
+function rvCatStore(){try{return JSON.parse(localStorage.getItem('rvCats')||'{}');}catch(e){return {};}}
+function revCat(r){const c=r.category||rvCatStore()[r.id];return c==='الإدارة'?'الإدارة':'خارجية';}
+function openRevCat(c){window._rvCat=c;renderReviews();}
 function renderReviews(){
   const el=document.getElementById('page-reviews');if(!el)return;
+  const cat=window._rvCat||'';
+  if(!cat){
+    el.innerHTML=`<div class="sh"><div class="sh-t">🔍 المراجعات</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+    ${REV_CATS.map(c=>{const a=DB.reviews.filter(r=>revCat(r)===c.k);const open=a.filter(r=>!['مكتملة','مغلقة'].includes(r.status)).length;
+      return`<div class="card" style="cursor:pointer;text-align:center;padding:26px 14px" onclick="openRevCat('${c.k}')">
+        <div style="font-size:42px">${c.ic}</div>
+        <div style="font-size:16px;font-weight:800;margin-top:10px">${c.t}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${c.d}</div>
+        <div style="margin-top:14px;font-size:13px"><span style="color:var(--purp2);font-weight:800">${a.length}</span> إجمالي · <span style="color:var(--amb2,#f59e0b);font-weight:800">${open}</span> مفتوحة</div>
+      </div>`;}).join('')}
+    </div>`;
+    return;
+  }
+  const catInfo=REV_CATS.find(c=>c.k===cat);
   const ST_R={جديدة:'bg-b','قيد التنفيذ':'bg-c','تحتاج متابعة':'bg-a',مكتملة:'bg-g',متأخرة:'bg-r',مغلقة:'bg-gr'};
   const facs=getFactories();const users=getUserNames();
-  el.innerHTML=`<div class="sh"><div class="sh-t">🔍 المراجعات المطلوبة</div><button class="btn bp btn-sm" onclick="openRevForm()">➕ مراجعة جديدة</button></div>
+  el.innerHTML=`<div class="sh"><div class="sh-t"><button class="btn bg btn-sm" onclick="openRevCat('')" style="margin-left:8px">→ رجوع</button>${catInfo.ic} ${catInfo.t}</div><button class="btn bp btn-sm" onclick="openRevForm()">➕ مراجعة جديدة</button></div>
   ${exportBar('rvData','المراجعات')}
   <div class="fb">
     <input class="si" id="rv-q" placeholder="🔍 بحث..." oninput="filterRevs()">
@@ -1965,6 +1986,7 @@ function filterRevs(){
   const ST_R={جديدة:'bg-b','قيد التنفيذ':'bg-c','تحتاج متابعة':'bg-a',مكتملة:'bg-g',متأخرة:'bg-r',مغلقة:'bg-gr'};
   const PRICOL={منخفضة:'bg-gr',عادية:'bg-b',عالية:'bg-a',عاجلة:'bg-r'};
   const arr=[...DB.reviews].filter(r=>{
+    if(revCat(r)!==(window._rvCat||'خارجية'))return false;
     if(sta&&r.status!==sta)return false;if(pri&&r.priority!==pri)return false;
     if(q&&!`${r.id} ${r.subject} ${r.factory}`.toLowerCase().includes(q))return false;
     return true;
@@ -1990,6 +2012,7 @@ function filterRevs(){
 function openRevForm(id=''){
   const r=id?DB.reviews.find(x=>x.id===id):{};const facs=getFactories();const users=getUserNames();
   openModal(id?`✏️ تعديل المراجعة ${id}`:'➕ مراجعة جديدة',`
+  <div class="fg"><label class="fl">القسم *</label><select class="fc" id="rf-cat">${REV_CATS.map(c=>`<option value="${c.k}" ${(r?.category?revCat(r)===c.k:(window._rvCat||'خارجية')===c.k)?'selected':''}>${c.t}</option>`).join('')}</select></div>
   <div class="form-row"><div class="fg"><label class="fl">تاريخ الطلب *</label><input type="date" class="fc" id="rf-date" value="${r?.date||td()}"></div><div class="fg"><label class="fl">المصنع</label><select class="fc" id="rf-fac">${facs.map(f=>`<option ${r?.factory===f?'selected':''}>${f}</option>`).join('')}</select></div></div>
   <div class="form-row"><div class="fg"><label class="fl">المنطقة</label><select class="fc" id="rf-area">${AREAS.map(a=>`<option ${r?.area===a?'selected':''}>${a}</option>`).join('')}</select></div><div class="fg"><label class="fl">الموقع</label><input type="text" class="fc" id="rf-loc" value="${esc(r?.location||'')}"></div></div>
   <div class="fg"><label class="fl">موضوع المراجعة *</label><input type="text" class="fc" id="rf-subj" value="${esc(r?.subject||'')}"></div>
@@ -2002,11 +2025,12 @@ function openRevForm(id=''){
 }
 function saveRev(id=''){
   const subj=document.getElementById('rf-subj')?.value?.trim();if(!subj){toast('الموضوع مطلوب','err');return;}
-  const data={date:document.getElementById('rf-date').value,factory:document.getElementById('rf-fac').value,area:document.getElementById('rf-area').value,location:document.getElementById('rf-loc').value,subject:subj,reason:document.getElementById('rf-reason').value,what:document.getElementById('rf-what').value,responsible:document.getElementById('rf-resp').value,priority:document.getElementById('rf-pri').value,deadline:document.getElementById('rf-dl').value,status:document.getElementById('rf-sta').value,result:document.getElementById('rf-result').value,notes:document.getElementById('rf-notes').value};
+  const data={category:document.getElementById('rf-cat').value,date:document.getElementById('rf-date').value,factory:document.getElementById('rf-fac').value,area:document.getElementById('rf-area').value,location:document.getElementById('rf-loc').value,subject:subj,reason:document.getElementById('rf-reason').value,what:document.getElementById('rf-what').value,responsible:document.getElementById('rf-resp').value,priority:document.getElementById('rf-pri').value,deadline:document.getElementById('rf-dl').value,status:document.getElementById('rf-sta').value,result:document.getElementById('rf-result').value,notes:document.getElementById('rf-notes').value};
   if(id){const idx=DB.reviews.findIndex(r=>r.id===id);if(idx>-1){logAudit('تعديل','مراجعة',id,'');DB.reviews[idx]={...DB.reviews[idx],...data};}}
   else{const r={...data,id:nid('REV',DB.reviews),createdAt:new Date().toISOString()};DB.reviews.push(r);logAudit('إضافة','مراجعة',r.id,'');}
   saveDB();closeModal();updateBadges();
   const rvId2=id||(DB.reviews[DB.reviews.length-1]?.id)||'';
+  try{const st=rvCatStore();st[rvId2]=data.category;localStorage.setItem('rvCats',JSON.stringify(st));}catch(e){}
   { const _rv=DB.reviews.find(r=>r.id===rvId2); if(_rv) sbSyncRv(_rv); } // 🔧 إصلاح: مزامنة المراجعة مع Supabase (كانت ناقصة)
   if(id)trackAction('تعديل','مراجعة',id,'تعديل المراجعة '+id,'reviews');
   else trackAction('إضافة','مراجعة',rvId2,'مراجعة جديدة: '+rvId2,'reviews');
@@ -3672,7 +3696,7 @@ function viData(){
 }
 function rvData(){
   return DB.reviews.map(r=>({
-    'رقم المراجعة':r.id,'التاريخ':r.date,'المصنع':r.factory||'',
+    'رقم المراجعة':r.id,'القسم':revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية','التاريخ':r.date,'المصنع':r.factory||'',
     'المنطقة':r.area||'','الموضوع':r.subject||'','سبب المراجعة':r.reason||'',
     'المطلوب مراجعته':r.what||'','المسؤول':r.responsible||'',
     'الأولوية':r.priority||'','الموعد النهائي':r.deadline||'',
@@ -3910,7 +3934,7 @@ function viData(){
 }
 function rvData(){
   return DB.reviews.map(r=>({
-    'رقم المراجعة':r.id,'التاريخ':r.date,'المصنع':r.factory||'',
+    'رقم المراجعة':r.id,'القسم':revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية','التاريخ':r.date,'المصنع':r.factory||'',
     'المنطقة':r.area||'','الموضوع':r.subject||'','سبب المراجعة':r.reason||'',
     'المطلوب مراجعته':r.what||'','المسؤول':r.responsible||'',
     'الأولوية':r.priority||'','الموعد النهائي':r.deadline||'',
@@ -4110,7 +4134,7 @@ function setSyncStatus(st){
 
 const MAP_EV={id:'id',date:'date',time:'time',factory:'factory',area:'area',location:'location',eventType:'event_type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',registeredBy:'registered_by',followUpResponsible:'follow_up_responsible',mainCategory:'main_category',subCategory:'sub_category',followUpDate:'follow_up_date',dueDate:'due_date',closedDate:'closed_date',closedTime:'closed_time',notes:'notes',escalation:'escalation',timeline:'timeline',images:'images',importBatchId:'import_batch_id',statement:'statement',createdAt:'created_at'};
 const MAP_VI={id:'id',date:'date',time:'time',eventId:'event_id',factory:'factory',area:'area',location:'location',type:'type',severity:'severity',status:'status',description:'description',actionTaken:'action_taken',concernedParty:'concerned_party',followUpResponsible:'follow_up_responsible',notes:'notes',timeline:'timeline',statement:'statement',createdAt:'created_at'};
-const MAP_RV={id:'id',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',statement:'statement',createdAt:'created_at'};
+const MAP_RV={id:'id',category:'category',date:'date',factory:'factory',area:'area',location:'location',subject:'subject',reason:'reason',what:'what',responsible:'responsible',priority:'priority',deadline:'deadline',status:'status',result:'result',notes:'notes',statement:'statement',createdAt:'created_at'};
 const MAP_STM={id:'id',date:'date',eventId:'event_id',violationId:'violation_id',party:'party',subject:'subject',text:'text',submitter:'submitter',submittedDate:'submitted_date',status:'status',notes:'notes',createdAt:'created_at'};
 const MAP_FU={id:'id',date:'date',relatedType:'related_type',relatedId:'related_id',responsible:'responsible',action:'action',done:'done',notDone:'not_done',nextDate:'next_date',status:'status',notes:'notes',createdAt:'created_at'};
 const MAP_USR={id:'id',name:'name',role:'role',active:'active',email:'email'};
@@ -4211,7 +4235,13 @@ async function sbREST(method,table,body=null,query='',extra={},_retried=false){
 async function sbUpsert(table,row){
   if(!sbReady)return false;
   try{await sbREST('POST',table,row,'',{'Prefer':'resolution=merge-duplicates,return=minimal'});return true;}
-  catch(e){console.warn('sbUpsert',table,e.message);return false;}
+  catch(e){
+    console.warn('sbUpsert',table,e.message);
+    if(table==='reviews'&&row&&row.category!==undefined){/* عمود category غير موجود في Supabase: إعادة المحاولة بدونه */
+      const r2={...row};delete r2.category;
+      try{await sbREST('POST',table,r2,'',{'Prefer':'resolution=merge-duplicates,return=minimal'});return true;}catch(e2){console.warn('sbUpsert retry',e2.message);}
+    }
+    return false;}
 }
 async function sbDelete(table,id){
   if(!sbReady)return false;
