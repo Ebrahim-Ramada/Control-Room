@@ -1388,6 +1388,85 @@ function showVioDetail(id){
 }
 
 // ══════════════════════════════════════════════════
+//  🖨️ REVIEW PRINT / WORD / PDF / PPT — كل صيغ الطباعة تحتوي: السبب + المطلوب مراجعته + النتيجة
+// ══════════════════════════════════════════════════
+function revScope(){
+  const c=window._rvCat||'';
+  return c?DB.reviews.filter(r=>revCat(r)===c):[...DB.reviews];
+}
+function revPickList(id){
+  if(id){const r=DB.reviews.find(x=>x.id===id);return r?[r]:[];}
+  return revScope();
+}
+function revTitle(id){
+  if(id)return 'مراجعة '+id;
+  const c=window._rvCat||'';
+  return c==='الإدارة'?'مراجعات الإدارة':c==='خارجية'?'مراجعات خارجية':'المراجعات';
+}
+function _rvEsc(v){return String(v==null||v===''?'—':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+function revDocBody(list){
+  return list.map(r=>{
+    const cat=revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية';
+    const meta=[['القسم',cat],['التاريخ',r.date],['المصنع',r.factory],['المنطقة',r.area],['الموضوع',r.subject],['الأولوية',r.priority],['الحالة',r.status],['المسؤول',r.responsible],['الموعد النهائي',r.deadline]];
+    const sec=(t,v)=>`<div style="border:1pt solid #cbd5e1;border-right:4pt solid #1e3a8a;margin:6pt 0;padding:7pt 10pt;page-break-inside:avoid"><div style="font-weight:bold;color:#1e3a8a;font-size:11pt;margin-bottom:3pt">${t}</div><div style="font-size:11pt;line-height:1.7">${_rvEsc(v)}</div></div>`;
+    return `<div style="page-break-inside:avoid;margin-bottom:18pt">
+      <div style="background:#1e3a8a;color:#fff;padding:7pt 10pt;font-size:13pt;font-weight:bold">مراجعة رقم ${_rvEsc(r.id)}</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:4pt"><tbody>
+      ${[0,3,6].map(i=>`<tr>${meta.slice(i,i+3).map(m=>`<td style="border:1pt solid #e2e8f0;padding:4pt 6pt;font-size:10pt;width:33%"><span style="color:#64748b">${m[0]}:</span> <b>${_rvEsc(m[1])}</b></td>`).join('')}</tr>`).join('')}
+      </tbody></table>
+      ${sec('📌 سبب المراجعة',r.reason)}
+      ${sec('🔍 المطلوب مراجعته',r.what)}
+      ${sec('✅ النتيجة',r.result)}
+      ${r.statement&&r.statement.text?sec('📝 الإفادة'+(r.statement.party?' — '+r.statement.party:''),r.statement.text):''}
+      ${r.notes?sec('ملاحظات',r.notes):''}
+    </div>`;
+  }).join('');
+}
+function revDocHTML(list,title,forWord){
+  const head=forWord?`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->`:`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">`;
+  return `${head}<title>${_rvEsc(title)}</title><style>@page{size:A4 portrait;margin:1.5cm}body{font-family:Arial,Tahoma,sans-serif;direction:rtl;color:#1e293b;margin:0}.hdr{text-align:center;padding:10px 0;border-bottom:2px solid #1e3a8a;margin-bottom:14px}.hdr h1{color:#1e3a8a;font-size:17pt;margin:0 0 3px}.hdr p{color:#64748b;font-size:9pt;margin:0}</style></head><body dir="rtl">
+  <div class="hdr"><h1>🏭 غرفة المراقبة المركزية — ${_rvEsc(title)}</h1><p>إجمالي: ${list.length} مراجعة &nbsp;|&nbsp; التاريخ: ${td()} &nbsp;|&nbsp; أعده: ${_rvEsc(CUSER?.name)}</p></div>
+  ${revDocBody(list)}
+  </body></html>`;
+}
+function revPrintNow(id){
+  const list=revPickList(id);if(!list.length){toast('لا توجد مراجعات للطباعة','err');return;}
+  const win=window.open('','_blank','width=900,height=700');
+  if(!win){toast('يرجى السماح بالنوافذ المنبثقة للطباعة','warn');return;}
+  win.document.open();win.document.write(revDocHTML(list,revTitle(id),false));win.document.close();win.focus();
+  setTimeout(()=>win.print(),600);
+  logAudit('طباعة مراجعات',revTitle(id),'—',list.length+' سجل');
+}
+function revWordNow(id){
+  const list=revPickList(id);if(!list.length){toast('لا توجد مراجعات','err');return;}
+  const blob=new Blob(['\ufeff'+revDocHTML(list,revTitle(id),true)],{type:'application/vnd.ms-word;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${revTitle(id)}_${td()}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(`تم تصدير Word ✅ (${list.length} مراجعة)`,'ok');logAudit('تصدير Word',revTitle(id),'—',list.length+' سجل');
+}
+async function revPPTXNow(id){
+  const list=revPickList(id);if(!list.length){toast('لا توجد مراجعات','err');return;}
+  toast('جاري إنشاء PowerPoint...','inf');
+  try{
+    await loadLib('PptxGenJS','https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
+    const p=new PptxGenJS();p.layout='LAYOUT_WIDE';
+    list.slice(0,200).forEach(r=>{
+      const sl=p.addSlide();sl.background={color:'0b1426'};
+      sl.addShape(p.ShapeType.rect,{x:0,y:0,w:13.33,h:0.9,fill:{color:'1e3a8a'},line:{color:'1e3a8a'}});
+      sl.addText(`مراجعة ${r.id}  •  ${r.subject||''}`,{x:0.4,y:0.1,w:12.5,h:0.7,fontSize:20,bold:true,color:'ffffff',align:'right',rtlMode:true,fit:'shrink'});
+      sl.addText(`${r.factory||'—'}  |  ${r.date||'—'}  |  ${r.priority||'—'}  |  ${r.status||'—'}  |  ${r.responsible||'—'}`,{x:0.4,y:1.0,w:12.5,h:0.4,fontSize:12,color:'94a3b8',align:'right',rtlMode:true});
+      [['📌 سبب المراجعة',r.reason,1.5],['🔍 المطلوب مراجعته',r.what,3.05],['✅ النتيجة',r.result,4.6]].forEach(([t,v,y])=>{
+        sl.addShape(p.ShapeType.rect,{x:0.4,y,w:12.5,h:1.45,fill:{color:'12203d'},line:{color:'2563eb',pt:1}});
+        sl.addText(t,{x:0.5,y:y+0.03,w:12.3,h:0.35,fontSize:13,bold:true,color:'60a5fa',align:'right',rtlMode:true});
+        sl.addText(String(v||'—'),{x:0.5,y:y+0.4,w:12.3,h:1.0,fontSize:13,color:'e2e8f0',align:'right',valign:'top',rtlMode:true,fit:'shrink'});
+      });
+    });
+    await p.writeFile({fileName:`${revTitle(id)}_${td()}.pptx`});
+    toast('تم تصدير PowerPoint ✅','ok');logAudit('تصدير PowerPoint',revTitle(id),'—',list.length+' سجل');
+  }catch(e){toast('خطأ في PowerPoint: '+e.message,'err');console.error(e);}
+}
+
+// ══════════════════════════════════════════════════
 //  REVIEW DETAIL VIEW
 // ══════════════════════════════════════════════════
 function showRevDetail(id){
@@ -1406,13 +1485,15 @@ function showRevDetail(id){
     <div class="di"><div class="dl">الموعد النهائي</div><div class="dv ${slaStatus(r.deadline).cls}">${slaStatus(r.deadline).label}</div></div>
     <div class="di"><div class="dl">المسؤول</div><div class="dv">${esc(r.responsible||'—')}</div></div>
   </div>
-  ${r.reason?`<div class="card"><div class="ctitle" style="margin-bottom:8px">📌 سبب المراجعة</div><p style="font-size:13px;color:var(--dim)">${esc(r.reason)}</p></div>`:''}
-  ${r.what?`<div class="card"><div class="ctitle" style="margin-bottom:8px">🔍 المطلوب مراجعته</div><p style="font-size:13px;color:var(--dim)">${esc(r.what)}</p></div>`:''}
-  ${r.result?`<div class="card"><div class="ctitle" style="margin-bottom:8px">✅ النتيجة</div><p style="font-size:13px;color:var(--dim)">${esc(r.result)}</p></div>`:''}
+  ${`<div class="card"><div class="ctitle" style="margin-bottom:8px">📌 سبب المراجعة</div><p style="font-size:13px;color:var(--dim)">${esc(r.reason||'—')}</p></div>`}
+  ${`<div class="card"><div class="ctitle" style="margin-bottom:8px">🔍 المطلوب مراجعته</div><p style="font-size:13px;color:var(--dim)">${esc(r.what||'—')}</p></div>`}
+  ${`<div class="card"><div class="ctitle" style="margin-bottom:8px">✅ النتيجة</div><p style="font-size:13px;color:var(--dim)">${esc(r.result||'—')}</p></div>`}
   <div class="stm-section-${r.id}">${renderInlineStmt(r,'rv')}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn bg btn-sm" onclick="closeModal();openRevForm('${r.id}')">✏️ تعديل</button>
     <button class="btn bg btn-sm" onclick="closeModal();changeStatusModal('${r.id}','rv')">🔄 حالة</button>
+    <button class="btn bg btn-sm" onclick="revPrintNow('${r.id}')">🖨️ طباعة</button>
+    <button class="btn bg btn-sm" onclick="revWordNow('${r.id}')">📘 Word</button>
   </div>`);
 }
 
@@ -3239,6 +3320,18 @@ function exportBar(dataFn, title, tableId=''){
       ${tableId?`<button class="btn bg btn-xs" onclick="expTableCSV('${tableId}','${title}')">📑 جدول</button>`:''}
     </div>`;
   }
+  if(dataFn==='rvData'){
+    return `<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
+      <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
+      <button class="btn bg btn-xs" onclick="revPrintNow()">🖨️ طباعة</button>
+      <button class="btn bg btn-xs" onclick="revPrintNow()">📕 PDF</button>
+      <button class="btn bg btn-xs" onclick="revWordNow()">📘 Word</button>
+      <button class="btn bg btn-xs" onclick="revPPTXNow()">📙 PPT</button>
+      <button class="btn bg btn-xs" onclick="expExcel(rvData(),'${title}')">📊 Excel</button>
+      <button class="btn bg btn-xs" onclick="expCSV(rvData(),'${title}')">📄 CSV</button>
+      <button class="btn bg btn-xs" onclick="expJSON(rvData(),'${title}')">📋 JSON</button>
+    </div>`;
+  }
   return `<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
     <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
     <button class="btn bg btn-xs" onclick="window.print()">🖨️ طباعة</button>
@@ -3695,7 +3788,7 @@ function viData(){
   }));
 }
 function rvData(){
-  return DB.reviews.map(r=>({
+  return revScope().map(r=>({
     'رقم المراجعة':r.id,'القسم':revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية','التاريخ':r.date,'المصنع':r.factory||'',
     'المنطقة':r.area||'','الموضوع':r.subject||'','سبب المراجعة':r.reason||'',
     'المطلوب مراجعته':r.what||'','المسؤول':r.responsible||'',
@@ -3933,7 +4026,7 @@ function viData(){
   }));
 }
 function rvData(){
-  return DB.reviews.map(r=>({
+  return revScope().map(r=>({
     'رقم المراجعة':r.id,'القسم':revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية','التاريخ':r.date,'المصنع':r.factory||'',
     'المنطقة':r.area||'','الموضوع':r.subject||'','سبب المراجعة':r.reason||'',
     'المطلوب مراجعته':r.what||'','المسؤول':r.responsible||'',
