@@ -300,6 +300,18 @@ body.light #loader{background:var(--bg)}
   .stats-grid{grid-template-columns:repeat(4,1fr)!important}
   h2,h3{break-after:avoid}
 }
+
+/* ===== نموذج مراجعة — تصميم 14 (نموذج جدول) ===== */
+.rv14-hd{background:#37474F;color:#fff;font-weight:800;font-size:16px;padding:12px 14px;border-radius:6px 6px 0 0}
+.rv14{width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl}
+.rv14 td{border:1px solid #B0BEC5;padding:0;vertical-align:middle}
+.rv14 td.l{background:#ECEFF1;color:#546E7A;font-size:12px;font-weight:700;text-align:center;padding:8px 6px;width:19%}
+.rv14 td.v{background:#fff;color:#263238;font-size:13px;padding:6px 8px;line-height:1.7}
+.rv14 td.v.b{font-weight:700;text-align:center}
+.rv14 td.v .fc{width:100%;background:#fff;color:#263238;border:0;box-shadow:none;outline:none;padding:4px 2px;font-family:inherit}
+.rv14 textarea.fc{min-height:70px;resize:vertical}
+.rv14 select.fc option{background:#fff;color:#263238}
+@media(max-width:640px){.rv14,.rv14 tbody,.rv14 tr,.rv14 td{display:block;width:100%!important}.rv14 td.l{text-align:right;border-bottom:0}}
 </style>
 </head>
 <body>
@@ -1405,29 +1417,33 @@ function revTitle(id){
 }
 function _rvEsc(v){return String(v==null||v===''?'—':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
 function revDocBody(list){
-  return list.map(r=>{
+  const L='background:#ECEFF1;color:#546E7A;font-size:11pt;font-weight:bold;border:1pt solid #B0BEC5;padding:5pt 8pt;text-align:center';
+  const V='background:#FFFFFF;color:#263238;font-size:12pt;border:1pt solid #B0BEC5;padding:5pt 10pt;text-align:right;line-height:1.7';
+  const VB=V+';font-weight:bold;text-align:center';
+  return list.map((r,idx)=>{
     const cat=revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية';
-    const meta=[['القسم',cat],['التاريخ',r.date],['المصنع',r.factory],['المنطقة',r.area],['الموضوع',r.subject],['الأولوية',r.priority],['الحالة',r.status],['المسؤول',r.responsible],['الموعد النهائي',r.deadline]];
-    const sec=(t,v)=>`<div style="border:1pt solid #cbd5e1;border-right:4pt solid #1e3a8a;margin:6pt 0;padding:7pt 10pt;page-break-inside:avoid"><div style="font-weight:bold;color:#1e3a8a;font-size:11pt;margin-bottom:3pt">${t}</div><div style="font-size:11pt;line-height:1.7">${_rvEsc(v)}</div></div>`;
-    return `<div style="page-break-inside:avoid;margin-bottom:18pt">
-      <div style="background:#1e3a8a;color:#fff;padding:7pt 10pt;font-size:13pt;font-weight:bold">مراجعة رقم ${_rvEsc(r.id)}</div>
-      <table style="width:100%;border-collapse:collapse;margin-top:4pt"><tbody>
-      ${[0,3,6].map(i=>`<tr>${meta.slice(i,i+3).map(m=>`<td style="border:1pt solid #e2e8f0;padding:4pt 6pt;font-size:10pt;width:33%"><span style="color:#64748b">${m[0]}:</span> <b>${_rvEsc(m[1])}</b></td>`).join('')}</tr>`).join('')}
+    const meta=[['المصنع',r.factory,'التاريخ',r.date],['الأولوية',r.priority,'الحالة',r.status],['القسم',cat,'المسؤول',r.responsible]];
+    const blocks=[['الموضوع',r.subject],['سبب المراجعة',r.reason],['المطلوب مراجعته',r.what],['النتيجة',r.result]];
+    if(r.deadline)blocks.push(['الموعد النهائي',r.deadline]);
+    if(r.statement&&r.statement.text)blocks.push(['الإفادة'+(r.statement.party?' — '+r.statement.party:''),r.statement.text]);
+    if(r.notes)blocks.push(['ملاحظات',r.notes]);
+    return `<div style="${idx?'page-break-before:always;':''}margin-bottom:8pt">
+      <div style="background:#37474F;color:#FFFFFF;padding:9pt 14pt;font-size:17pt;font-weight:bold">نموذج مراجعة — ${_rvEsc(r.id)}</div>
+      <table style="width:100%;border-collapse:collapse"><tbody>
+      ${meta.map(m=>`<tr><td style="${L};width:15%">${m[0]}</td><td style="${VB};width:35%">${_rvEsc(m[1])}</td><td style="${L};width:15%">${m[2]}</td><td style="${VB};width:35%">${_rvEsc(m[3])}</td></tr>`).join('')}
       </tbody></table>
-      ${sec('📌 سبب المراجعة',r.reason)}
-      ${sec('🔍 المطلوب مراجعته',r.what)}
-      ${sec('✅ النتيجة',r.result)}
-      ${r.statement&&r.statement.text?sec('📝 الإفادة'+(r.statement.party?' — '+r.statement.party:''),r.statement.text):''}
-      ${r.notes?sec('ملاحظات',r.notes):''}
+      <table style="width:100%;border-collapse:collapse;margin-top:6pt"><tbody>
+      ${blocks.map(b=>`<tr><td style="${L};width:18%">${b[0]}</td><td style="${V}">${_rvEsc(b[1])}</td></tr>`).join('')}
+      </tbody></table>
     </div>`;
   }).join('');
 }
 function revDocHTML(list,title,forWord){
   const head=forWord?`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->`:`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">`;
-  return `${head}<title>${_rvEsc(title)}</title><style>@page{size:A4 portrait;margin:1.5cm}body{font-family:Arial,Tahoma,sans-serif;direction:rtl;color:#1e293b;margin:0}.hdr{text-align:center;padding:10px 0;border-bottom:2px solid #1e3a8a;margin-bottom:14px}.hdr h1{color:#1e3a8a;font-size:17pt;margin:0 0 3px}.hdr p{color:#64748b;font-size:9pt;margin:0}</style></head><body dir="rtl">
-  <div class="hdr"><h1>🏭 غرفة المراقبة المركزية — ${_rvEsc(title)}</h1><p>إجمالي: ${list.length} مراجعة &nbsp;|&nbsp; التاريخ: ${td()} &nbsp;|&nbsp; أعده: ${_rvEsc(CUSER?.name)}</p></div>
+  const pg=forWord?`@page WordSection1{size:29.7cm 21cm;mso-page-orientation:landscape;margin:1.5cm}div.WordSection1{page:WordSection1}`:`@page{size:A4 landscape;margin:1.2cm}`;
+  return `${head}<title>${_rvEsc(title)}</title><style>${pg}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,Tahoma,sans-serif;direction:rtl;color:#263238;margin:0}</style></head><body dir="rtl"><div class="WordSection1">
   ${revDocBody(list)}
-  </body></html>`;
+  </div></body></html>`;
 }
 function revPrintNow(id){
   const list=revPickList(id);if(!list.length){toast('لا توجد مراجعات للطباعة','err');return;}
@@ -1450,15 +1466,29 @@ async function revPPTXNow(id){
   try{
     await loadLib('PptxGenJS','https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
     const p=new PptxGenJS();p.layout='LAYOUT_WIDE';
-    list.slice(0,200).forEach(r=>{
-      const sl=p.addSlide();sl.background={color:'0b1426'};
-      sl.addShape(p.ShapeType.rect,{x:0,y:0,w:13.33,h:0.9,fill:{color:'1e3a8a'},line:{color:'1e3a8a'}});
-      sl.addText(`مراجعة ${r.id}  •  ${r.subject||''}`,{x:0.4,y:0.1,w:12.5,h:0.7,fontSize:20,bold:true,color:'ffffff',align:'right',rtlMode:true,fit:'shrink'});
-      sl.addText(`${r.factory||'—'}  |  ${r.date||'—'}  |  ${r.priority||'—'}  |  ${r.status||'—'}  |  ${r.responsible||'—'}`,{x:0.4,y:1.0,w:12.5,h:0.4,fontSize:12,color:'94a3b8',align:'right',rtlMode:true});
-      [['📌 سبب المراجعة',r.reason,1.5],['🔍 المطلوب مراجعته',r.what,3.05],['✅ النتيجة',r.result,4.6]].forEach(([t,v,y])=>{
-        sl.addShape(p.ShapeType.rect,{x:0.4,y,w:12.5,h:1.45,fill:{color:'12203d'},line:{color:'2563eb',pt:1}});
-        sl.addText(t,{x:0.5,y:y+0.03,w:12.3,h:0.35,fontSize:13,bold:true,color:'60a5fa',align:'right',rtlMode:true});
-        sl.addText(String(v||'—'),{x:0.5,y:y+0.4,w:12.3,h:1.0,fontSize:13,color:'e2e8f0',align:'right',valign:'top',rtlMode:true,fit:'shrink'});
+    const F='Arial';
+    const T=(s,t,x,y,w,h,o={})=>s.addText(String(t==null||t===''?'—':t),Object.assign({x,y,w,h,fontFace:F,fontSize:14,color:'263238',rtlMode:true,align:'right',valign:'middle',margin:0.05,isTextBox:true},o));
+    const R=(s,x,y,w,h,fill,lc)=>s.addShape(p.ShapeType.rect,{x,y,w,h,fill:{color:fill},line:{color:lc||fill,width:lc?1:0}});
+    list.slice(0,300).forEach(r=>{
+      const cat=revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية';
+      const s=p.addSlide();s.background={color:'FFFFFF'};
+      R(s,0.5,0.4,12.3,0.8,'37474F');
+      T(s,`نموذج مراجعة — ${r.id}`,0.7,0.4,11.9,0.8,{fontSize:22,bold:true,color:'FFFFFF'});
+      const rows=[['المصنع',r.factory,'التاريخ',r.date],['الأولوية',r.priority,'الحالة',r.status],['القسم',cat,'المسؤول',r.responsible]];
+      rows.forEach((row,i)=>{
+        const y=1.2+i*0.5;
+        row.forEach((t,c)=>{
+          const lab=c%2===0,x=12.8-(c+1)*3.075;
+          R(s,x,y,3.075,0.5,lab?'ECEFF1':'FFFFFF','B0BEC5');
+          T(s,t,x,y,3.075,0.5,{fontSize:lab?12:14,bold:!lab,color:lab?'546E7A':'263238',align:'center'});
+        });
+      });
+      const blocks=[['الموضوع',r.subject,2.8,0.5,14],['سبب المراجعة',r.reason,3.3,0.5,14],['المطلوب مراجعته',r.what,3.8,1.2,12],['النتيجة',r.result,5.0,2.1,11.5]];
+      blocks.forEach(([t,v,y,h,fs])=>{
+        R(s,10.0,y,2.8,h,'ECEFF1','B0BEC5');
+        T(s,t,10.0,y,2.8,h,{fontSize:12,bold:true,color:'546E7A',align:'center'});
+        R(s,0.5,y,9.5,h,'FFFFFF','B0BEC5');
+        T(s,v,0.6,y+0.03,9.3,h-0.06,{fontSize:fs,valign:h>1?'top':'middle'});
       });
     });
     await p.writeFile({fileName:`${revTitle(id)}_${td()}.pptx`});
@@ -1472,23 +1502,24 @@ async function revPPTXNow(id){
 function showRevDetail(id){
   const r=DB.reviews.find(x=>x.id===id);if(!r)return;
   const ST_R={جديدة:'bg-b','قيد التنفيذ':'bg-c','تحتاج متابعة':'bg-a',مكتملة:'bg-g',متأخرة:'bg-r',مغلقة:'bg-gr'};
-  const PRICOL={منخفضة:'bg-gr',عادية:'bg-b',عالية:'bg-a',عاجلة:'bg-r'};
+  const cat=revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية';
+  const dl=r.deadline?slaStatus(r.deadline).label:'—';
+  const m=(l1,v1,l2,v2)=>`<tr><td class="l">${l1}</td><td class="v b">${v1}</td><td class="l">${l2}</td><td class="v b">${v2}</td></tr>`;
+  const b=(l,v)=>`<tr><td class="l">${l}</td><td class="v" colspan="3">${esc(v||'—').replace(/\n/g,'<br>')}</td></tr>`;
   openModal(`🔍 تفاصيل المراجعة ${id}`,`
-  <div class="dg">
-    <div class="di"><div class="dl">رقم المراجعة</div><div class="dv" style="color:var(--purp2);font-weight:800">${r.id}</div></div>
-    <div class="di"><div class="dl">القسم</div><div class="dv">${revCat(r)==='الإدارة'?'مراجعات الإدارة':'مراجعات خارجية'}</div></div>
-    <div class="di"><div class="dl">التاريخ</div><div class="dv">${fmtD(r.date)}</div></div>
-    <div class="di"><div class="dl">المصنع</div><div class="dv">${esc(r.factory||'—')}</div></div>
-    <div class="di"><div class="dl">الموضوع</div><div class="dv">${esc(r.subject||'—')}</div></div>
-    <div class="di"><div class="dl">الأولوية</div><div class="dv">${badge(r.priority||'—',PRICOL[r.priority]||'bg-gr')}</div></div>
-    <div class="di"><div class="dl">الحالة</div><div class="dv">${stB(r.status,ST_R)}</div></div>
-    <div class="di"><div class="dl">الموعد النهائي</div><div class="dv ${slaStatus(r.deadline).cls}">${slaStatus(r.deadline).label}</div></div>
-    <div class="di"><div class="dl">المسؤول</div><div class="dv">${esc(r.responsible||'—')}</div></div>
-  </div>
-  ${`<div class="card"><div class="ctitle" style="margin-bottom:8px">📌 سبب المراجعة</div><p style="font-size:13px;color:var(--dim)">${esc(r.reason||'—')}</p></div>`}
-  ${`<div class="card"><div class="ctitle" style="margin-bottom:8px">🔍 المطلوب مراجعته</div><p style="font-size:13px;color:var(--dim)">${esc(r.what||'—')}</p></div>`}
-  ${`<div class="card"><div class="ctitle" style="margin-bottom:8px">✅ النتيجة</div><p style="font-size:13px;color:var(--dim)">${esc(r.result||'—')}</p></div>`}
-  <div class="stm-section-${r.id}">${renderInlineStmt(r,'rv')}</div>
+  <div class="rv14-hd">نموذج مراجعة — ${esc(r.id)}</div>
+  <table class="rv14"><tbody>
+    ${m('المصنع',esc(r.factory||'—'),'التاريخ',fmtD(r.date))}
+    ${m('الأولوية',esc(r.priority||'—'),'الحالة',esc(r.status||'—'))}
+    ${m('القسم',cat,'المسؤول',esc(r.responsible||'—'))}
+    ${b('الموضوع',r.subject)}
+    ${b('سبب المراجعة',r.reason)}
+    ${b('المطلوب مراجعته',r.what)}
+    ${b('النتيجة',r.result)}
+    ${b('الموعد النهائي',dl)}
+    ${r.notes?b('ملاحظات',r.notes):''}
+  </tbody></table>
+  <div class="stm-section-${r.id}" style="margin-top:12px">${renderInlineStmt(r,'rv')}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn bg btn-sm" onclick="closeModal();openRevForm('${r.id}')">✏️ تعديل</button>
     <button class="btn bg btn-sm" onclick="closeModal();changeStatusModal('${r.id}','rv')">🔄 حالة</button>
@@ -2093,16 +2124,8 @@ function filterRevs(){
 function openRevForm(id=''){
   const r=id?DB.reviews.find(x=>x.id===id):{};const facs=getFactories();const users=getUserNames();
   openModal(id?`✏️ تعديل المراجعة ${id}`:'➕ مراجعة جديدة',`
-  <div class="fg"><label class="fl">القسم *</label><select class="fc" id="rf-cat">${REV_CATS.map(c=>`<option value="${c.k}" ${(r?.category?revCat(r)===c.k:(window._rvCat||'خارجية')===c.k)?'selected':''}>${c.t}</option>`).join('')}</select></div>
-  <div class="form-row"><div class="fg"><label class="fl">تاريخ الطلب *</label><input type="date" class="fc" id="rf-date" value="${r?.date||td()}"></div><div class="fg"><label class="fl">المصنع</label><select class="fc" id="rf-fac">${facs.map(f=>`<option ${r?.factory===f?'selected':''}>${f}</option>`).join('')}</select></div></div>
-  <div class="form-row"><div class="fg"><label class="fl">المنطقة</label><select class="fc" id="rf-area">${AREAS.map(a=>`<option ${r?.area===a?'selected':''}>${a}</option>`).join('')}</select></div><div class="fg"><label class="fl">الموقع</label><input type="text" class="fc" id="rf-loc" value="${esc(r?.location||'')}"></div></div>
-  <div class="fg"><label class="fl">موضوع المراجعة *</label><input type="text" class="fc" id="rf-subj" value="${esc(r?.subject||'')}"></div>
-  <div class="fg"><label class="fl">سبب المراجعة</label><textarea class="fc" id="rf-reason">${esc(r?.reason||'')}</textarea></div>
-  <div class="fg"><label class="fl">المطلوب مراجعته</label><textarea class="fc" id="rf-what">${esc(r?.what||'')}</textarea></div>
-  <div class="form-row"><div class="fg"><label class="fl">المسؤول</label><select class="fc" id="rf-resp"><option value="">— اختر —</option>${users.map(u=>`<option ${r?.responsible===u?'selected':''}>${u}</option>`).join('')}</select></div><div class="fg"><label class="fl">الأولوية</label><select class="fc" id="rf-pri">${PRIORITIES.map(p=>`<option ${r?.priority===p?'selected':''}>${p}</option>`).join('')}</select></div></div>
-  <div class="form-row"><div class="fg"><label class="fl">الموعد النهائي</label><input type="date" class="fc" id="rf-dl" value="${r?.deadline||''}"></div><div class="fg"><label class="fl">الحالة</label><select class="fc" id="rf-sta">${REV_STATUSES.map(s=>`<option ${r?.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
-  <div class="fg"><label class="fl">نتيجة المراجعة</label><textarea class="fc" id="rf-result">${esc(r?.result||'')}</textarea></div>
-  <div class="fg"><label class="fl">ملاحظات</label><textarea class="fc" id="rf-notes">${esc(r?.notes||'')}</textarea></div>`,[{label:'✅ حفظ',cls:'bp',fn:`saveRev('${id}')`}]);
+  <div class="rv14-hd">نموذج مراجعة — ${id||'جديدة'}</div>
+  <table class="rv14"><tbody><tr><td class="l">القسم</td><td class="v"><select class="fc" id="rf-cat">${REV_CATS.map(c=>`<option value="${c.k}" ${(r?.category?revCat(r)===c.k:(window._rvCat||'خارجية')===c.k)?'selected':''}>${c.t}</option>`).join('')}</select></td><td class="l">التاريخ</td><td class="v"><input type="date" class="fc" id="rf-date" value="${r?.date||td()}"></td></tr><tr><td class="l">المصنع</td><td class="v"><select class="fc" id="rf-fac">${facs.map(f=>`<option ${r?.factory===f?'selected':''}>${f}</option>`).join('')}</select></td><td class="l">المنطقة</td><td class="v"><select class="fc" id="rf-area">${AREAS.map(a=>`<option ${r?.area===a?'selected':''}>${a}</option>`).join('')}</select></td></tr><tr><td class="l">الموقع</td><td class="v"><input type="text" class="fc" id="rf-loc" value="${esc(r?.location||'')}"></td><td class="l">الموعد النهائي</td><td class="v"><input type="date" class="fc" id="rf-dl" value="${r?.deadline||''}"></td></tr><tr><td class="l">المسؤول</td><td class="v"><select class="fc" id="rf-resp"><option value="">— اختر —</option>${users.map(u=>`<option ${r?.responsible===u?'selected':''}>${u}</option>`).join('')}</select></td><td class="l">الأولوية</td><td class="v"><select class="fc" id="rf-pri">${PRIORITIES.map(p=>`<option ${r?.priority===p?'selected':''}>${p}</option>`).join('')}</select></td></tr><tr><td class="l">الحالة</td><td class="v" colspan=3><select class="fc" id="rf-sta">${REV_STATUSES.map(s=>`<option ${r?.status===s?'selected':''}>${s}</option>`).join('')}</select></td></tr><tr><td class="l">الموضوع *</td><td class="v" colspan=3><input type="text" class="fc" id="rf-subj" value="${esc(r?.subject||'')}"></td></tr><tr><td class="l">سبب المراجعة</td><td class="v" colspan=3><textarea class="fc" id="rf-reason">${esc(r?.reason||'')}</textarea></td></tr><tr><td class="l">المطلوب مراجعته</td><td class="v" colspan=3><textarea class="fc" id="rf-what">${esc(r?.what||'')}</textarea></td></tr><tr><td class="l">نتيجة المراجعة</td><td class="v" colspan=3><textarea class="fc" id="rf-result">${esc(r?.result||'')}</textarea></td></tr><tr><td class="l">ملاحظات</td><td class="v" colspan=3><textarea class="fc" id="rf-notes">${esc(r?.notes||'')}</textarea></td></tr></tbody></table>`,[{label:'✅ حفظ',cls:'bp',fn:`saveRev('${id}')`}]);
 }
 function saveRev(id=''){
   const subj=document.getElementById('rf-subj')?.value?.trim();if(!subj){toast('الموضوع مطلوب','err');return;}
