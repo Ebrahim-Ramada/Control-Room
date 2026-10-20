@@ -384,6 +384,7 @@ body.light #loader{background:var(--bg)}
     <div class="ni" onclick="goTo('statements')"><span class="ic">📝</span> الإفادات</div>
     <div class="ni" onclick="goTo('followups')"><span class="ic">📌</span> المتابعات <span class="nb" id="nb-fu">0</span></div>
     <div class="ni" onclick="goTo('tasks')"><span class="ic">📋</span> المهام <span class="nb" id="nb-tk">0</span></div>
+    <div class="ni" onclick="goTo('dairy')"><span class="ic">🥛</span> كميات الألبان</div>
 
     <div class="sb-sec">الحالات الحرجة</div>
     <div class="ni" onclick="goTo('urgent')"><span class="ic">🚨</span> تدخل فوري <span class="nb" id="nb-urg">0</span></div>
@@ -458,6 +459,7 @@ body.light #loader{background:var(--bg)}
     <div id="page-events" class="page"></div>
     <div id="page-violations" class="page"></div>
     <div id="page-reviews" class="page"></div>
+    <div id="page-dairy" class="page"></div>
     <div id="page-statements" class="page"></div>
     <div id="page-followups" class="page"></div>
     <div id="page-tasks" class="page"></div>
@@ -551,7 +553,7 @@ const USERS_DEF=[
 ];
 const EV_TYPES_DEF=['حدث أمني','مخالفة سلامة','مخالفة تشغيلية','مخالفة أمنية','حادث','سلوك مخالف','دخول غير مصرح','خروج غير مصرح','حركة غير طبيعية','مشكلة في إجراءات السلامة','ملاحظة أثناء المراقبة','مراجعة مطلوبة','إفادة مطلوبة','طلب متابعة','حدث آخر'];
 const VIO_TYPES_DEF=['مخالفة سلامة','مخالفة أمنية','مخالفة تشغيلية','مخالفة إجرائية','سلوك غير لائق','عدم ارتداء معدات الحماية','مخالفة دخول/خروج','إهمال في العمل','مخالفة أخرى'];
-const PAGE_TITLES={dashboard:'📊 لوحة التحكم',events:'📌 الأحداث',violations:'⚠️ المخالفات',reviews:'🔍 المراجعات',statements:'📝 الإفادات',followups:'📌 المتابعات',tasks:'📋 المهام',urgent:'🚨 تدخل فوري',search:'🔎 البحث الشامل',archive:'🗄️ الأرشيف','report-daily':'📅 التقرير اليومي','report-weekly':'📆 التقرير الأسبوعي','report-monthly':'🗓️ التقرير الشهري','report-annual':'📁 التقرير السنوي',analytics:'📈 الإحصائيات',comparisons:'⚖️ المقارنات','report-center':'📊 مركز التقارير','import-center':'📥 مركز الاستيراد','import-log':'📋 سجل الاستيراد',audit:'📋 سجل التدقيق',settings:'⚙️ الإعدادات',factories:'🏭 المصانع',cameras:'📷 الكاميرات','users-mgmt':'👥 المستخدمين','types-mgmt':'🏷️ أنواع البيانات','sla-mgmt':'⏱️ إعدادات SLA',backup:'💾 النسخ الاحتياطي'};
+const PAGE_TITLES={dashboard:'📊 لوحة التحكم',events:'📌 الأحداث',violations:'⚠️ المخالفات',reviews:'🔍 المراجعات',dairy:'🥛 كميات الألبان',statements:'📝 الإفادات',followups:'📌 المتابعات',tasks:'📋 المهام',urgent:'🚨 تدخل فوري',search:'🔎 البحث الشامل',archive:'🗄️ الأرشيف','report-daily':'📅 التقرير اليومي','report-weekly':'📆 التقرير الأسبوعي','report-monthly':'🗓️ التقرير الشهري','report-annual':'📁 التقرير السنوي',analytics:'📈 الإحصائيات',comparisons:'⚖️ المقارنات','report-center':'📊 مركز التقارير','import-center':'📥 مركز الاستيراد','import-log':'📋 سجل الاستيراد',audit:'📋 سجل التدقيق',settings:'⚙️ الإعدادات',factories:'🏭 المصانع',cameras:'📷 الكاميرات','users-mgmt':'👥 المستخدمين','types-mgmt':'🏷️ أنواع البيانات','sla-mgmt':'⏱️ إعدادات SLA',backup:'💾 النسخ الاحتياطي'};
 const MONTHS_AR=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const DAYS_AR=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 
@@ -569,7 +571,7 @@ const LS={
 // ══════════════════════════════════════════════════
 let DB={
   events:[],violations:[],reviews:[],statements:[],
-  followups:[],tasks:[],
+  followups:[],tasks:[],dairy:[],dairyMeta:{preparer:''},
   factories:[],cameras:[],users:[],
   auditLog:[],importBatches:[],
   settings:{
@@ -867,7 +869,7 @@ function goTo(page){
   // Render
   const R={
     dashboard:renderDashboard,events:renderEvents,violations:renderViolations,
-    reviews:renderReviews,statements:renderStatements,followups:renderFollowups,
+    reviews:renderReviews,dairy:renderDairy,statements:renderStatements,followups:renderFollowups,
     tasks:renderTasks,urgent:renderUrgent,search:renderSearch,archive:renderArchive,
     'report-daily':renderDailyRpt,'report-weekly':renderWeeklyRpt,
     'report-monthly':renderMonthlyRpt,'report-annual':renderAnnualRpt,
@@ -2139,6 +2141,387 @@ function saveRev(id=''){
   if(id)trackAction('تعديل','مراجعة',id,'تعديل المراجعة '+id,'reviews');
   else trackAction('إضافة','مراجعة',rvId2,'مراجعة جديدة: '+rvId2,'reviews');
   toast('تم الحفظ ✅','ok');
+}
+
+// ══════════════════════════════════════════════════
+//  🥛 كميات الألبان — تقرير سنوي (صفحة + طباعة + PDF + Word + PPT + Excel)
+// ══════════════════════════════════════════════════
+const DY_SEED=[[1,38945.310,2769],[2,27614.408,2455],[3,30077.110,2738],[4,35756.810,2938],[5,31748.630,2641],[6,25850.934,2141],[7,22662.321,1942],[8,21029.230,1763],[9,21270.140,1751]];
+const DY_QN=['الربع الأول','الربع الثاني','الربع الثالث','الربع الرابع'];
+const DY_C={teal:'#009690',navy:'#12294A',panel:'#163559',gold:'#E8A93A',blue:'#2E6DB4',gray:'#6B7A8F',bg:'#F1F5FA',row:'#EEF3FA'};
+const dyF0=n=>Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
+const dyF1=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const dyF3=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});
+const dyPct=n=>(n>0?'+':'')+Number(n||0).toFixed(1)+'%';
+const dyMn=r=>MONTHS_AR[r.month-1];
+function dyHx(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function dyEnsure(){
+  if(!Array.isArray(DB.dairy))DB.dairy=[];
+  if(!DB.dairyMeta)DB.dairyMeta={preparer:''};
+  if(!DB.dairy.length&&!DB.dairySeeded){
+    DB.dairy=DY_SEED.map(([m,q,c])=>({id:'DY-'+String(m).padStart(3,'0'),factory:'المصرية',year:2026,month:m,qty:q,cars:c}));
+    DB.dairyMeta.preparer=DB.dairyMeta.preparer||'إبراهيم رمضان';
+    DB.dairySeeded=true;saveDB();
+  }
+}
+function dyFactories(){return [...new Set(DB.dairy.map(r=>r.factory).filter(Boolean))];}
+function dyCur(){
+  const fs=dyFactories();
+  if(!window._dyF||!fs.includes(window._dyF))window._dyF=fs[0]||'';
+  const ys=[...new Set(DB.dairy.filter(r=>r.factory===window._dyF).map(r=>+r.year))].sort();
+  if(!window._dyY||!ys.includes(+window._dyY))window._dyY=ys[ys.length-1]||new Date().getFullYear();
+  return {f:window._dyF,y:+window._dyY,ys};
+}
+function dyRows(){const c=dyCur();return DB.dairy.filter(r=>r.factory===c.f&&+r.year===c.y).sort((a,b)=>a.month-b.month);}
+function dyPeriod(r){const last=new Date(+r.year,r.month,0).getDate();return `من 1 ${MONTHS_AR[r.month-1]} إلى ${last} ${MONTHS_AR[r.month-1]}`;}
+function dyStats(rows){
+  const n=rows.length;if(!n)return null;
+  const sum=(a,k)=>a.reduce((s,r)=>s+(+r[k]||0),0);
+  const tc=sum(rows,'cars'),tq=sum(rows,'qty');
+  const pick=(k,cmp)=>rows.reduce((b,r)=>cmp(r[k],b[k])?r:b,rows[0]);
+  const first=rows[0],last=rows[n-1];
+  const qs=[1,2,3,4].map(q=>{const rr=rows.filter(r=>Math.ceil(r.month/3)===q);return rr.length?{q,name:DY_QN[q-1],cars:sum(rr,'cars'),qty:sum(rr,'qty'),share:tc?sum(rr,'cars')/tc*100:0}:null;}).filter(Boolean);
+  return {n,tc,tq,ac:tc/n,aq:tq/n,first,last,
+    maxC:pick('cars',(a,b)=>a>b),minC:pick('cars',(a,b)=>a<b),maxQ:pick('qty',(a,b)=>a>b),minQ:pick('qty',(a,b)=>a<b),
+    pc:first.cars?(last.cars-first.cars)/first.cars*100:0,pq:first.qty?(last.qty-first.qty)/first.qty*100:0,qs};
+}
+function dyCount(n){return n===1?'شهر واحد':n===2?'شهرين':n<=10?n+' أشهر':n+' شهرًا';}
+function dyRange(rows,y){return rows.length?`من 1 ${dyMn(rows[0])} إلى ${new Date(y,rows[rows.length-1].month,0).getDate()} ${dyMn(rows[rows.length-1])} ${y}`:'';}
+function dyNote(st){
+  if(!st||st.n>=12)return '';
+  const pre=st.first.month===1?'أول ':'';
+  return `ملاحظة: البيانات المتاحة تغطي ${pre}${dyCount(st.n)} فقط، لذلك يُعد هذا تقريرًا سنويًا مبدئيًا حتى ${dyMn(st.last)} وليس حصيلة العام الكامل.`;
+}
+function dyObs(st){
+  const o=[],q=st.qs;
+  o.push(`أعلى عدد سيارات سُجل في ${dyMn(st.maxC)} بإجمالي ${dyF0(st.maxC.cars)} سيارة.`);
+  o.push(`أقل عدد سيارات سُجل في ${dyMn(st.minC)} بإجمالي ${dyF0(st.minC.cars)} سيارة.`);
+  o.push(`الكمية الشهرية ${st.last.qty<st.first.qty?'انخفضت':'ارتفعت'} من ${dyF3(st.first.qty)} طن في ${dyMn(st.first)} إلى ${dyF3(st.last.qty)} طن في ${dyMn(st.last)}.`);
+  if(q.length>1)o.push(`${q[0].name} سجل ${dyF0(q[0].cars)} سيارة، مقابل ${dyF0(q[q.length-1].cars)} سيارة في ${q[q.length-1].name}.`);
+  if(st.n>2){
+    const rows=window._dyRowsCache||[];const prev=rows[rows.length-2];
+    let t=st.last.cars<st.first.cars?'يظهر تراجعًا في عدد السيارات في نهاية الفترة مقارنة ببدايتها':st.last.cars>st.first.cars?'يظهر ارتفاعًا في عدد السيارات في نهاية الفترة مقارنة ببدايتها':'عدد السيارات في نهاية الفترة مماثل لبدايتها';
+    if(prev&&prev.qty&&Math.abs(st.last.qty-prev.qty)/prev.qty<0.05)t+=`، مع استقرار نسبي للكمية بين ${dyMn(prev)} و${dyMn(st.last)}`;
+    o.push(t+'.');
+  }
+  return o;
+}
+function dyKpis(st){
+  return [
+    ['متوسط السيارات شهريًا',dyF1(st.ac),'سيارة / شهر',DY_C.gold],
+    ['إجمالي الكمية بالطن',dyF3(st.tq),'مجموع الأشهر المسجلة',DY_C.teal],
+    ['إجمالي عدد السيارات',dyF0(st.tc),`خلال ${dyCount(st.n)}`,DY_C.blue],
+    ['أعلى شهر في الكمية',dyMn(st.maxQ),`${dyF3(st.maxQ.qty)} طن`,DY_C.gold],
+    ['أعلى شهر في عدد السيارات',dyMn(st.maxC),`${dyF0(st.maxC.cars)} سيارة`,DY_C.blue],
+    ['متوسط الكمية شهريًا',dyF3(st.aq),'طن / شهر',DY_C.teal],
+  ];
+}
+function dyCompare(st){return st.n>1?`مقارنة ${dyMn(st.first)} بـ${dyMn(st.last)}: عدد السيارات ${dyPct(st.pc)}، والكمية الشهرية ${dyPct(st.pq)}.`:'';}
+
+// ── رسم المخططات (Canvas → PNG) ──
+function dyScale(max){
+  const raw=Math.max(max,1)*1.08/8,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;
+  const s=(f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;
+  return {step:s,top:Math.ceil(max*1.08/s)*s};
+}
+const DY_PAL=['#4472A8','#A94545','#8AA64E','#74598F','#4398B0','#DC8340','#94A9D2','#D39090','#B8CE95','#5B8DB8','#C9A227','#7A9E7E'];
+function dyChart(kind,labels,values,o={}){
+  const W=o.w||1200,H=o.h||560,fs=o.fs||22;
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');
+  x.fillStyle=o.bg||DY_C.bg;x.fillRect(0,0,W,H);
+  const padL=fs*4.6,padR=24,padT=fs*2.4,padB=fs*2.8;
+  const n=values.length,cw=W-padL-padR,ch=H-padT-padB;
+  const sc=dyScale(Math.max(...values,1));
+  const Y=v=>padT+ch-(v/sc.top)*ch;
+  x.font=`bold ${fs}px Tahoma,Arial,sans-serif`;
+  x.textBaseline='middle';
+  for(let v=0;v<=sc.top+1e-9;v+=sc.step){
+    const y=Y(v);x.strokeStyle='#222';x.lineWidth=v===0?2:1;x.beginPath();x.moveTo(padL,y);x.lineTo(W-padR,y);x.stroke();
+    x.fillStyle='#111';x.textAlign='right';x.fillText(dyF0(v),padL-10,y);
+  }
+  const sw=cw/n,pos=i=>padL+sw*(n-1-i+0.5); // الأول على اليمين
+  if(kind==='bar'){
+    values.forEach((v,i)=>{
+      const bw=Math.min(sw*0.42,fs*3.6),cx=pos(i),y=Y(v);
+      x.fillStyle=(o.colors&&o.colors[i%o.colors.length])||DY_PAL[i%DY_PAL.length];
+      x.fillRect(cx-bw/2,y,bw,Y(0)-y);
+      x.fillStyle='#111';x.textAlign='center';x.fillText(dyF0(v),cx,y-fs*0.8);
+    });
+  }else{
+    x.strokeStyle=o.line||'#9BBB59';x.lineWidth=fs*0.28;x.lineJoin='round';x.beginPath();
+    values.forEach((v,i)=>{const cx=pos(i),y=Y(v);i?x.lineTo(cx,y):x.moveTo(cx,y);});x.stroke();
+    values.forEach((v,i)=>{
+      const cx=pos(i),y=Y(v),d=fs*0.5;
+      x.fillStyle=o.line||'#9BBB59';x.beginPath();x.moveTo(cx,y-d);x.lineTo(cx+d,y);x.lineTo(cx,y+d);x.lineTo(cx-d,y);x.closePath();x.fill();
+      x.fillStyle='#111';x.textAlign='center';x.fillText(dyF0(v),cx,y-fs*1.25);
+    });
+  }
+  x.fillStyle='#111';x.textAlign='center';
+  labels.forEach((l,i)=>x.fillText(l,pos(i),H-padB+fs*1.3));
+  return c.toDataURL('image/png');
+}
+function dyCharts(rows,st){
+  const lab=rows.map(r=>MONTHS_AR[r.month-1]);
+  return {
+    cars:dyChart('bar',lab,rows.map(r=>+r.cars)),
+    qty:dyChart('line',lab,rows.map(r=>+r.qty)),
+    qCars:dyChart('bar',st.qs.map(q=>q.name),st.qs.map(q=>q.cars),{w:760,h:420,fs:19,colors:['#4F81BD','#C0504D','#9BBB59','#8064A2']}),
+    qQty:dyChart('bar',st.qs.map(q=>q.name),st.qs.map(q=>Math.round(q.qty)),{w:760,h:420,fs:19,colors:['#7F9B4A','#9BBB59','#C3D69B','#D9E5B8']})
+  };
+}
+function dyData(){
+  const rows=dyRows(),st=dyStats(rows);
+  const d=rows.map((r,i)=>({'م':i+1,'المصنع':r.factory,'السنة':r.year,'الشهر':MONTHS_AR[r.month-1],'الفترة':dyPeriod(r),'الكمية (طن)':+(+r.qty).toFixed(3),'عدد السيارات':+r.cars}));
+  if(st)d.push({'م':'','المصنع':'','السنة':'','الشهر':'الإجمالي','الفترة':'','الكمية (طن)':+st.tq.toFixed(3),'عدد السيارات':st.tc});
+  return d;
+}
+
+// ══════════ الصفحة داخل التطبيق ══════════
+function renderDairy(){
+  const el=document.getElementById('page-dairy');if(!el)return;
+  dyEnsure();
+  const cur=dyCur(),rows=dyRows(),st=dyStats(rows);window._dyRowsCache=rows;
+  const facs=dyFactories();
+  const head=`<div class="sh"><div class="sh-t">🥛 كميات الألبان</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bp btn-sm" onclick="openDairyForm()">➕ إضافة شهر</button><button class="btn bg btn-sm" onclick="openDairyMeta()">✏️ بيانات التقرير</button></div></div>
+  <div class="fb no-print"><select class="sft" onchange="window._dyF=this.value;window._dyY=0;renderDairy()">${facs.map(f=>`<option ${f===cur.f?'selected':''}>${dyHx(f)}</option>`).join('')}</select>
+  <select class="sft" onchange="window._dyY=+this.value;renderDairy()">${cur.ys.map(y=>`<option ${y===cur.y?'selected':''}>${y}</option>`).join('')}</select></div>`;
+  if(!st){el.innerHTML=head+`<div class="card"><div class="empty">لا توجد بيانات بعد — اضغط «➕ إضافة شهر»</div></div>`;return;}
+  const ch=dyCharts(rows,st);
+  const bar=`<div class="exp-bar no-print" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:9px 12px;margin-bottom:14px">
+    <span style="font-size:11px;font-weight:700;color:var(--dim);margin-left:6px;white-space:nowrap">📤 تصدير:</span>
+    <button class="btn bg btn-xs" onclick="dairyPrintNow()">🖨️ طباعة</button>
+    <button class="btn bg btn-xs" onclick="dairyPrintNow()">📕 PDF</button>
+    <button class="btn bg btn-xs" onclick="dairyWordNow()">📘 Word</button>
+    <button class="btn bg btn-xs" onclick="dairyPPTXNow()">📙 PPT</button>
+    <button class="btn bg btn-xs" onclick="expExcel(dyData(),'كميات_الألبان_'+dyCur().y)">📊 Excel</button>
+    <button class="btn bg btn-xs" onclick="expCSV(dyData(),'كميات_الألبان_'+dyCur().y)">📄 CSV</button>
+    <button class="btn bg btn-xs" onclick="expJSON(dyData(),'كميات_الألبان_'+dyCur().y)">📋 JSON</button></div>`;
+  const kp=dyKpis(st).map(k=>`<div class="sc" style="text-align:right;border-right:4px solid ${k[3]}"><div class="sc-l" style="margin:0">${k[0]}</div><div class="sc-n" style="font-size:20px;margin:6px 0 2px">${k[1]}</div><div class="sc-l">${k[2]}</div></div>`).join('');
+  const note=dyNote(st);
+  const trs=rows.map((r,i)=>`<tr><td>${i+1}</td><td style="font-weight:700">${MONTHS_AR[r.month-1]}</td><td style="font-size:11px">${dyPeriod(r)}</td><td>${dyF3(r.qty)}</td><td>${dyF0(r.cars)}</td><td style="white-space:nowrap"><button class="btn bg btn-xs" onclick="openDairyForm('${r.id}')">✏️</button> <button class="btn bd btn-xs" onclick="dairyDel('${r.id}')">🗑️</button></td></tr>`).join('');
+  const qtr=st.qs.map(q=>`<tr><td style="font-weight:700">${q.name}</td><td>${dyF0(q.cars)}</td><td>${dyF3(q.qty)}</td><td>${q.share.toFixed(1)}% من السيارات</td></tr>`).join('');
+  el.innerHTML=head+bar+`
+  <div class="card"><div class="ctitle" style="margin-bottom:6px">📋 الملخص التنفيذي</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:12px">${dyRange(rows,cur.y)} — ${dyHx(cur.f)}</div>
+    <div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">${kp}</div>
+    ${st.n>1?`<div style="font-size:13px;font-weight:700;margin-top:4px">${dyCompare(st)}</div>`:''}
+    ${note?`<div style="font-size:12px;color:var(--amber2,#f59e0b);margin-top:8px">⚠️ ${note}</div>`:''}</div>
+  <div class="card"><div class="ctitle" style="margin-bottom:8px">🚚 تطور إجمالي عدد السيارات شهريًا</div><img src="${ch.cars}" style="width:100%;border-radius:8px" alt="">
+    <div style="font-size:12px;font-weight:700;margin-top:8px">الأعلى: ${dyMn(st.maxC)} (${dyF0(st.maxC.cars)} سيارة) | الأقل: ${dyMn(st.minC)} (${dyF0(st.minC.cars)} سيارة)</div></div>
+  <div class="card"><div class="ctitle" style="margin-bottom:8px">⚖️ تطور الكمية الشهرية بالطن</div><img src="${ch.qty}" style="width:100%;border-radius:8px" alt="">
+    <div style="font-size:12px;font-weight:700;margin-top:8px">أعلى كمية: ${dyMn(st.maxQ)} (${dyF3(st.maxQ.qty)} طن) | أقل كمية: ${dyMn(st.minQ)} (${dyF3(st.minQ.qty)} طن)</div></div>
+  <div class="card"><div class="ctitle" style="margin-bottom:10px">🗓️ البيانات الشهرية التفصيلية</div>
+    <div class="tw"><table><thead><tr><th>م</th><th>الشهر</th><th>الفترة</th><th>الكمية (طن)</th><th>عدد السيارات</th><th>إجراء</th></tr></thead><tbody>${trs}
+    <tr style="font-weight:800"><td colspan="3">الإجمالي</td><td>${dyF3(st.tq)}</td><td>${dyF0(st.tc)}</td><td></td></tr></tbody></table></div></div>
+  <div class="card"><div class="ctitle" style="margin-bottom:10px">📊 مقارنة الأداء حسب الربع</div>
+    <div class="tw"><table><thead><tr><th>الفترة</th><th>إجمالي السيارات</th><th>إجمالي الكمية (طن)</th><th>حصة السيارات من الإجمالي</th></tr></thead><tbody>${qtr}</tbody></table></div>
+    <div class="grid2" style="margin-top:12px"><div><div style="font-size:12px;font-weight:700;margin-bottom:4px">الكمية بالطن</div><img src="${ch.qQty}" style="width:100%;border-radius:8px" alt=""></div><div><div style="font-size:12px;font-weight:700;margin-bottom:4px">عدد السيارات</div><img src="${ch.qCars}" style="width:100%;border-radius:8px" alt=""></div></div></div>
+  <div class="card"><div class="ctitle" style="margin-bottom:10px">💡 أبرز الملاحظات والتحليل</div>
+    ${dyObs(st).map((t,i)=>`<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px"><span style="min-width:30px;height:30px;border-radius:50%;background:${i%2?DY_C.blue:DY_C.teal};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">${String(i+1).padStart(2,'0')}</span><span style="font-size:13px;line-height:1.8">${t}</span></div>`).join('')}
+    <div style="font-size:11px;color:var(--dim);margin-top:6px">إعداد — ${dyHx((DB.dairyMeta||{}).preparer||'—')}</div></div>`;
+}
+function openDairyForm(id=''){
+  dyEnsure();
+  const r=id?DB.dairy.find(x=>x.id===id):null;const c=dyCur();
+  const now=new Date();
+  openModal(id?'✏️ تعديل شهر':'➕ إضافة شهر',`
+  <div class="fg"><label class="fl">المصنع *</label><input class="fc" id="dy-fac" list="dy-facs" value="${dyHx(r?r.factory:c.f)}"><datalist id="dy-facs">${[...new Set([...dyFactories(),...(typeof getFactories==='function'?getFactories():[])])].map(f=>`<option value="${dyHx(f)}">`).join('')}</datalist></div>
+  <div class="form-row"><div class="fg"><label class="fl">السنة *</label><input type="number" class="fc" id="dy-year" value="${r?r.year:(c.y||now.getFullYear())}"></div>
+  <div class="fg"><label class="fl">الشهر *</label><select class="fc" id="dy-mon">${MONTHS_AR.map((m,i)=>`<option value="${i+1}" ${r&&r.month===i+1?'selected':''}>${m}</option>`).join('')}</select></div></div>
+  <div class="form-row"><div class="fg"><label class="fl">الكمية (طن) *</label><input type="number" step="0.001" min="0" class="fc" id="dy-qty" value="${r?r.qty:''}"></div>
+  <div class="fg"><label class="fl">عدد السيارات *</label><input type="number" step="1" min="0" class="fc" id="dy-cars" value="${r?r.cars:''}"></div></div>`,
+  [{label:'✅ حفظ',cls:'bp',fn:`saveDairy('${id}')`}]);
+}
+function saveDairy(id=''){
+  const f=(document.getElementById('dy-fac').value||'').trim(),y=+document.getElementById('dy-year').value,m=+document.getElementById('dy-mon').value;
+  const q=parseFloat(document.getElementById('dy-qty').value),c=parseInt(document.getElementById('dy-cars').value,10);
+  if(!f||!y||!m||isNaN(q)||isNaN(c)||q<0||c<0){toast('أكمل البيانات (المصنع/السنة/الشهر/الكمية/السيارات)','err');return;}
+  const dup=DB.dairy.find(x=>x.factory===f&&+x.year===y&&+x.month===m&&x.id!==id);
+  if(dup){toast('هذا الشهر مسجل بالفعل لنفس المصنع والسنة','err');return;}
+  if(id){const i=DB.dairy.findIndex(x=>x.id===id);if(i>-1)DB.dairy[i]={...DB.dairy[i],factory:f,year:y,month:m,qty:q,cars:c};logAudit('تعديل','كميات الألبان',id,`${MONTHS_AR[m-1]} ${y}`);}
+  else{const nr={id:'DY-'+Date.now().toString(36),factory:f,year:y,month:m,qty:q,cars:c};DB.dairy.push(nr);logAudit('إضافة','كميات الألبان',nr.id,`${MONTHS_AR[m-1]} ${y}`);}
+  window._dyF=f;window._dyY=y;DB.dairySeeded=true;saveDB();closeModal();renderDairy();toast('تم الحفظ ✅','ok');
+}
+function dairyDel(id){
+  requireDeletePassword(()=>{DB.dairy=DB.dairy.filter(x=>x.id!==id);DB.dairySeeded=true;saveDB();logAudit('حذف','كميات الألبان',id,'');renderDairy();toast('تم الحذف','ok');},'حذف شهر من كميات الألبان','dairy',id);
+}
+function openDairyMeta(){
+  dyEnsure();
+  openModal('✏️ بيانات التقرير',`<div class="fg"><label class="fl">إعداد (اسم معد التقرير)</label><input class="fc" id="dy-prep" value="${dyHx((DB.dairyMeta||{}).preparer||'')}"></div>`,[{label:'✅ حفظ',cls:'bp',fn:'saveDairyMeta()'}]);
+}
+function saveDairyMeta(){DB.dairyMeta={...(DB.dairyMeta||{}),preparer:document.getElementById('dy-prep').value.trim()};saveDB();closeModal();renderDairy();toast('تم الحفظ ✅','ok');}
+
+// ══════════ طباعة / PDF — صفحات بنفس تصميم التقرير ══════════
+function dyPagesHTML(rows,st,c,ch){
+  const e=dyHx,meta=DB.dairyMeta||{},prep=meta.preparer||'';
+  const note=dyNote(st),foot=(n)=>`<div class="ft"><span>تقرير كميات الألبان | ${e(c.f)} | ${c.y}</span><span>${n}</span></div>`;
+  const content=(n,title,sub,body)=>`<section class="pg"><div class="bar"></div><div class="ttl">${title}</div>${sub?`<div class="sub">${sub}</div>`:''}${body}${foot(n)}</section>`;
+  const kp=dyKpis(st).map(k=>`<div class="kc" style="border-right-color:${k[3]}"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="ks">${k[2]}</div></div>`).join('');
+  const rh=Math.min(11.5,118/(rows.length+1));
+  const tr=rows.map((r,i)=>`<tr style="height:${rh}mm;background:${i%2?DY_C.row:'#fff'}"><td>${dyPeriod(r)}</td><td>${dyF3(r.qty)}</td><td>${dyF0(r.cars)}</td><td>${MONTHS_AR[r.month-1]}</td><td>${i+1}</td></tr>`).join('');
+  const qr=st.qs.map((q,i)=>`<tr style="background:${i%2?DY_C.row:'#fff'}"><td>${q.share.toFixed(1)}% من السيارات</td><td>${dyF3(q.qty)}</td><td>${dyF0(q.cars)}</td><td>${q.name}</td></tr>`).join('');
+  const obs=dyObs(st).map((t,i)=>`<div class="ob"><span class="nb" style="background:${i%2?DY_C.blue:DY_C.teal}">${String(i+1).padStart(2,'0')}</span><span>${t}</span></div>`).join('');
+  return `
+<section class="pg cover"><div class="bar"></div><div class="panel"></div>
+  <div class="c1">التقرير السنوي لكميات الألبان</div><div class="c2">المصنع: ${e(c.f)}</div><div class="c3">الفترة: ${dyRange(rows,c.y)}</div><div class="c4">عرض تنفيذي للإدارة</div>
+  <div class="goldbar"></div>${note?`<div class="cn">${note}</div>`:''}</section>
+${content(2,'الملخص التنفيذي',`أهم المؤشرات للفترة من ${dyMn(st.first)} إلى ${dyMn(st.last)} ${c.y}`,`<div class="kg">${kp}</div><div class="cmp">${dyCompare(st)}</div>`)}
+${content(3,'تطور إجمالي عدد السيارات شهريًا','يوضح الرسم التغير في عدد السيارات المسجل لكل شهر',`<img class="chart" src="${ch.cars}"><div class="cap">الأعلى: ${dyMn(st.maxC)} (${dyF0(st.maxC.cars)} سيارة) | الأقل: ${dyMn(st.minC)} (${dyF0(st.minC.cars)} سيارة)</div>`)}
+${content(4,'تطور الكمية الشهرية بالطن','',`<img class="chart" src="${ch.qty}"><div class="cap">أعلى كمية: ${dyMn(st.maxQ)} (${dyF3(st.maxQ.qty)} طن) | أقل كمية: ${dyMn(st.minQ)} (${dyF3(st.minQ.qty)} طن)</div>`)}
+${content(5,'البيانات الشهرية التفصيلية','',`<table class="tb" style="margin-top:6mm"><thead><tr style="height:${rh}mm"><th style="width:34%">الفترة</th><th style="width:22%">الكمية (طن)</th><th style="width:18%">عدد السيارات</th><th style="width:18%">الشهر</th><th style="width:8%">م</th></tr></thead><tbody>${tr}</tbody></table>`)}
+${content(6,'مقارنة الأداء حسب الربع','تجميع الأشهر المتاحة في '+(st.qs.length===1?'ربع واحد':st.qs.length===2?'ربعين':st.qs.length===3?'ثلاثة أرباع':'أربعة أرباع'),`<table class="tb sm"><thead><tr><th>حصة السيارات من الإجمالي</th><th>إجمالي الكمية (طن)</th><th>إجمالي السيارات</th><th>الفترة</th></tr></thead><tbody>${qr}</tbody></table><div class="two"><div><div class="ct">الكمية بالطن</div><img src="${ch.qQty}"></div><div><div class="ct">عدد السيارات</div><img src="${ch.qCars}"></div></div>`)}
+${content(7,'أبرز الملاحظات والتحليل','',`<div class="obs">${obs}</div>`)}
+<section class="pg cover"><div class="bar"></div><div class="t1">شكرًا لحسن المتابعة</div><div class="t2">${st.n<12?'التقرير المبدئي':'التقرير'} لكميات الألبان — مصنع ${e(c.f)}</div><div class="t3">${dyMn(st.first)} – ${dyMn(st.last)} ${c.y}</div>${prep?`<div class="t4">إعداد – ${e(prep)}</div>`:''}</section>`;
+}
+const DY_CSS=`@page{size:297mm 167mm;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:Tahoma,Arial,sans-serif;direction:rtl;color:${DY_C.navy}}
+.pg{width:297mm;height:167mm;position:relative;overflow:hidden;page-break-after:always;background:${DY_C.bg}}.pg:last-child{page-break-after:auto}
+.bar{position:absolute;top:0;left:0;right:0;height:4mm;background:${DY_C.teal}}
+.ttl{position:absolute;top:11mm;right:14mm;left:14mm;font-size:17pt;font-weight:800;color:${DY_C.navy}}
+.sub{position:absolute;top:24mm;right:14mm;left:14mm;font-size:13pt;font-weight:700;color:${DY_C.gray}}
+.ft{position:absolute;bottom:4mm;right:14mm;left:14mm;display:flex;flex-direction:row-reverse;justify-content:space-between;font-size:11pt;font-weight:700;color:${DY_C.gray}}
+.cover{background:${DY_C.navy}}.cover .panel{position:absolute;top:4mm;bottom:0;right:0;width:27%;background:${DY_C.panel}}
+.c1{position:absolute;top:34mm;right:22mm;font-size:17pt;font-weight:800;color:#fff}.c2{position:absolute;top:56mm;right:30mm;font-size:15pt;font-weight:800;color:#BFD8EE}
+.c3{position:absolute;top:70mm;right:30mm;font-size:15pt;font-weight:800;color:#fff}.c4{position:absolute;top:86mm;right:30mm;font-size:15pt;font-weight:800;color:${DY_C.gold}}
+.goldbar{position:absolute;left:13mm;top:131mm;width:74mm;height:2mm;background:${DY_C.gold}}.cn{position:absolute;bottom:10mm;right:20mm;left:28mm;font-size:13pt;font-weight:800;color:#fff;line-height:1.5}
+.kg{position:absolute;top:38mm;right:14mm;left:14mm;display:grid;grid-template-columns:repeat(3,1fr);gap:6mm}
+.kc{background:#fff;border-radius:5mm;border-right:2mm solid;padding:4mm 6mm;height:32mm;box-shadow:0 1px 4px rgba(0,0,0,.18)}.kl{font-size:12.5pt;font-weight:800;color:${DY_C.gray}}.kv{font-size:19pt;font-weight:800;color:${DY_C.navy};margin:1mm 0}.ks{font-size:12pt;font-weight:800;color:${DY_C.gray}}
+.cmp{position:absolute;top:118mm;right:14mm;left:14mm;font-size:14pt;font-weight:800}
+.chart{position:absolute;top:32mm;right:14mm;width:269mm;height:112mm}.cap{position:absolute;top:147mm;right:14mm;left:14mm;font-size:13pt;font-weight:800}
+.tb{position:absolute;top:30mm;right:14mm;width:269mm;border-collapse:collapse;text-align:center;font-weight:800;font-size:13pt}.tb th{background:${DY_C.navy};color:#fff;border:.3mm solid #fff;padding:1mm}.tb td{border:.3mm solid #fff;padding:1mm}
+.tb.sm{top:34mm;font-size:13pt}.tb.sm tr{height:11mm}.tb.sm th{height:12mm}
+.two{position:absolute;top:82mm;right:14mm;left:14mm;display:flex;gap:10mm}.two>div{flex:1;text-align:center}.two img{width:100%;height:56mm;object-fit:contain}.ct{font-size:13pt;font-weight:800;margin-bottom:1mm}
+.obs{position:absolute;top:34mm;right:14mm;left:14mm}.ob{display:flex;gap:5mm;align-items:center;margin-bottom:6mm;font-size:14pt;font-weight:800;line-height:1.5}.nb{min-width:11mm;height:11mm;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12pt}
+.t1{position:absolute;top:44mm;right:22mm;font-size:17pt;font-weight:800;color:#fff}.t2{position:absolute;top:70mm;right:22mm;font-size:16pt;color:#BFD8EE}.t3{position:absolute;top:88mm;right:22mm;font-size:16pt;font-weight:800;color:${DY_C.gold}}.t4{position:absolute;top:104mm;right:22mm;font-size:16pt;font-weight:800;color:${DY_C.gold}}`;
+function dairyPrintNow(){
+  dyEnsure();const rows=dyRows(),st=dyStats(rows);if(!st){toast('لا توجد بيانات','err');return;}
+  window._dyRowsCache=rows;const c=dyCur(),ch=dyCharts(rows,st);
+  const w=window.open('','_blank','width=1100,height=700');
+  if(!w){toast('يرجى السماح بالنوافذ المنبثقة','warn');return;}
+  w.document.open();w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كميات الألبان ${c.y}</title><style>${DY_CSS}</style></head><body>${dyPagesHTML(rows,st,c,ch)}</body></html>`);w.document.close();
+  w.focus();setTimeout(()=>w.print(),900);
+  logAudit('طباعة','كميات الألبان','—',rows.length+' شهر');
+}
+
+// ══════════ Word (.docx) ══════════
+async function dairyWordNow(){
+  dyEnsure();const rows=dyRows(),st=dyStats(rows);if(!st){toast('لا توجد بيانات','err');return;}
+  window._dyRowsCache=rows;toast('جاري إنشاء Word...','inf');
+  try{
+    await loadZipL();
+    const c=dyCur(),ch=dyCharts(rows,st),prep=(DB.dairyMeta||{}).preparer||'';
+    const xe=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const PW=16838,PH=11906,M=700,TW=PW-2*M,hx=h=>h.replace('#','');
+    const run=(t,o={})=>{const sz=o.sz||24;return `<w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:rtl/>${o.b?'<w:b/><w:bCs/>':''}<w:color w:val="${hx(o.c||DY_C.navy)}"/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${xe(t)||' '}</w:t></w:r>`;};
+    const para=(t,o={})=>`<w:p><w:pPr><w:bidi/>${o.jc?`<w:jc w:val="${o.jc}"/>`:''}<w:spacing w:before="${o.before||0}" w:after="${o.after==null?100:o.after}" w:line="${o.line||320}" w:lineRule="auto"/></w:pPr>${run(t,o)}</w:p>`;
+    const cell=(w,fill,inner,o={})=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:tcBorders>${['top','left','bottom','right'].map(s=>`<w:${s} w:val="single" w:sz="${o.bsz||6}" w:space="0" w:color="${hx(o.bc||fill)}"/>`).join('')}</w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="${hx(fill)}"/><w:tcMar><w:top w:w="${o.pad||100}" w:type="dxa"/><w:left w:w="${o.px||160}" w:type="dxa"/><w:bottom w:w="${o.pad||100}" w:type="dxa"/><w:right w:w="${o.px||160}" w:type="dxa"/></w:tcMar><w:vAlign w:val="${o.va||'center'}"/></w:tcPr>${inner}</w:tc>`;
+    const row=(h,cells)=>`<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="${h}" w:hRule="atLeast"/></w:trPr>${cells}</w:tr>`;
+    const table=(ws,rowsX)=>`<w:tbl><w:tblPr><w:tblW w:w="${ws.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:bidiVisual/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${ws.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${rowsX}</w:tbl>`;
+    const gap=h=>`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="${h}" w:lineRule="exact"/></w:pPr></w:p>`;
+    const brk='<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+    const media=[];
+    const img=(dataUrl,wIn,hIn,jc)=>{const id=media.length+1,rid='rImg'+id,cx=Math.round(wIn*914400),cy=Math.round(hIn*914400);media.push({rid,name:`img${id}.png`,b64:dataUrl.split(',')[1]});
+      return `<w:p><w:pPr><w:jc w:val="${jc||'center'}"/><w:spacing w:before="0" w:after="60"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id+20}" name="img${id}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id+20}" name="img${id}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;};
+    const head=(t,sub)=>para(t,{b:1,sz:40,after:60})+(sub?para(sub,{c:DY_C.gray,b:1,sz:26,after:160}):gap(120));
+    const N=DY_C.navy,G=DY_C.gray,note=dyNote(st);
+    let b='';
+    // 1) الغلاف
+    b+=table([TW],row(5200,cell(TW,N,para('التقرير السنوي لكميات الألبان',{b:1,sz:56,c:'#FFFFFF',after:200})+para('المصنع: '+c.f,{b:1,sz:32,c:'#BFD8EE'})+para('الفترة: '+dyRange(rows,c.y),{b:1,sz:32,c:'#FFFFFF'})+para('عرض تنفيذي للإدارة',{b:1,sz:32,c:DY_C.gold,after:300})+(note?para(note,{b:1,sz:26,c:'#FFFFFF'}):''),{px:500,pad:300})))+brk;
+    // 2) الملخص التنفيذي
+    const k=dyKpis(st),kw=Math.floor(TW/3);
+    const kcell=(x,w)=>cell(w,'#FFFFFF',para(x[0],{b:1,sz:24,c:G,after:40})+para(x[1],{b:1,sz:40,after:40})+para(x[2],{b:1,sz:22,c:G,after:0}),{bc:'#D5DBEA',px:240,pad:180});
+    b+=head('الملخص التنفيذي','أهم المؤشرات للفترة من '+dyMn(st.first)+' إلى '+dyMn(st.last)+' '+c.y)+
+      table([kw,kw,TW-2*kw],row(1500,kcell(k[0],kw)+kcell(k[1],kw)+kcell(k[2],TW-2*kw))+row(1500,kcell(k[3],kw)+kcell(k[4],kw)+kcell(k[5],TW-2*kw)))+gap(200)+
+      (st.n>1?para(dyCompare(st),{b:1,sz:28}):'')+brk;
+    // 3) السيارات
+    b+=head('تطور إجمالي عدد السيارات شهريًا','يوضح الرسم التغير في عدد السيارات المسجل لكل شهر')+img(ch.cars,9.3,9.3*560/1200)+para(`الأعلى: ${dyMn(st.maxC)} (${dyF0(st.maxC.cars)} سيارة) | الأقل: ${dyMn(st.minC)} (${dyF0(st.minC.cars)} سيارة)`,{b:1,sz:26})+brk;
+    // 4) الكمية
+    b+=head('تطور الكمية الشهرية بالطن','')+img(ch.qty,9.3,9.3*560/1200)+para(`أعلى كمية: ${dyMn(st.maxQ)} (${dyF3(st.maxQ.qty)} طن) | أقل كمية: ${dyMn(st.minQ)} (${dyF3(st.minQ.qty)} طن)`,{b:1,sz:26})+brk;
+    // 5) الجدول التفصيلي
+    const cw=[Math.round(TW*.32),Math.round(TW*.22),Math.round(TW*.18),Math.round(TW*.18)];cw.push(TW-cw.reduce((a,x)=>a+x,0));
+    const th=(w,t)=>cell(w,N,para(t,{b:1,sz:26,c:'#FFFFFF',jc:'center',after:0}),{bc:'#FFFFFF',pad:110});
+    const td=(w,t,i)=>cell(w,i%2?DY_C.row:'#FFFFFF',para(t,{b:1,sz:24,jc:'center',after:0}),{bc:'#FFFFFF',pad:80});
+    b+=head('البيانات الشهرية التفصيلية','')+table(cw,row(480,th(cw[0],'الفترة')+th(cw[1],'الكمية (طن)')+th(cw[2],'عدد السيارات')+th(cw[3],'الشهر')+th(cw[4],'م'))+
+      rows.map((r,i)=>row(440,td(cw[0],dyPeriod(r),i)+td(cw[1],dyF3(r.qty),i)+td(cw[2],dyF0(r.cars),i)+td(cw[3],MONTHS_AR[r.month-1],i)+td(cw[4],String(i+1),i))).join(''))+brk;
+    // 6) الأرباع
+    const qw=[Math.round(TW*.34),Math.round(TW*.26),Math.round(TW*.22)];qw.push(TW-qw.reduce((a,x)=>a+x,0));
+    const half=Math.floor(TW/2);
+    b+=head('مقارنة الأداء حسب الربع','')+table(qw,row(480,th(qw[0],'حصة السيارات من الإجمالي')+th(qw[1],'إجمالي الكمية (طن)')+th(qw[2],'إجمالي السيارات')+th(qw[3],'الفترة'))+
+      st.qs.map((q,i)=>row(440,td(qw[0],q.share.toFixed(1)+'% من السيارات',i)+td(qw[1],dyF3(q.qty),i)+td(qw[2],dyF0(q.cars),i)+td(qw[3],q.name,i))).join(''))+gap(160)+
+      table([half,TW-half],row(3300,cell(half,'#FFFFFF',para('الكمية بالطن',{b:1,sz:24,jc:'center',after:40})+img(ch.qQty,4.6,4.6*420/760),{bc:'#FFFFFF'})+cell(TW-half,'#FFFFFF',para('عدد السيارات',{b:1,sz:24,jc:'center',after:40})+img(ch.qCars,4.6,4.6*420/760),{bc:'#FFFFFF'})))+brk;
+    // 7) الملاحظات
+    b+=head('أبرز الملاحظات والتحليل','')+dyObs(st).map((t,i)=>para(String(i+1).padStart(2,'0')+'  —  '+t,{b:1,sz:28,after:200,line:360})).join('')+brk;
+    // 8) الختام
+    b+=table([TW],row(3600,cell(TW,N,para('شكرًا لحسن المتابعة',{b:1,sz:44,c:'#FFFFFF',after:200})+para((st.n<12?'التقرير المبدئي':'التقرير')+' لكميات الألبان — مصنع '+c.f,{sz:32,c:'#BFD8EE'})+para(dyMn(st.first)+' – '+dyMn(st.last)+' '+c.y,{b:1,sz:32,c:DY_C.gold})+(prep?para('إعداد – '+prep,{b:1,sz:32,c:DY_C.gold,after:0}):''),{px:500,pad:300})));
+    const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${b}<w:sectPr><w:pgSz w:w="${PW}" w:h="${PH}" w:orient="landscape"/><w:pgMar w:top="${M}" w:right="${M}" w:bottom="${M}" w:left="${M}" w:header="0" w:footer="0" w:gutter="0"/><w:bidi/></w:sectPr></w:body></w:document>`;
+    const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId0" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rSet" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>${media.map(m=>`<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.name}"/>`).join('')}</Relationships>`;
+    const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>`;
+    const zip=new JSZip();
+    zip.file('[Content_Types].xml',ct);
+    zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+    zip.file('word/document.xml',doc);zip.file('word/_rels/document.xml.rels',rels);
+    zip.file('word/settings.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:bidi/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`);
+    zip.file('word/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ar-EG" w:bidi="ar-SA"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:bidi/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>`);
+    media.forEach(m=>zip.file('word/media/'+m.name,m.b64,{base64:true}));
+    const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`كميات_الألبان_${c.y}.docx`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast('تم تنزيل Word ✅','ok');logAudit('تصدير Word','كميات الألبان','—',rows.length+' شهر');
+  }catch(e){console.error(e);toast('خطأ: '+e.message,'err');}
+}
+
+// ══════════ PowerPoint ══════════
+async function dairyPPTXNow(){
+  dyEnsure();const rows=dyRows(),st=dyStats(rows);if(!st){toast('لا توجد بيانات','err');return;}
+  window._dyRowsCache=rows;toast('جاري إنشاء PowerPoint...','inf');
+  try{
+    await loadLib('PptxGenJS','https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
+    const c=dyCur(),ch=dyCharts(rows,st),prep=(DB.dairyMeta||{}).preparer||'',note=dyNote(st);
+    const p=new PptxGenJS();p.layout='LAYOUT_WIDE';
+    const F='Arial',W=13.33,hx=h=>h.replace('#',''),N=hx(DY_C.navy),TL=hx(DY_C.teal),GD=hx(DY_C.gold),GR=hx(DY_C.gray);
+    const T=(s,t,x,y,w,h,o={})=>s.addText(String(t),Object.assign({x,y,w,h,fontFace:F,fontSize:16,bold:true,color:N,rtlMode:true,align:'right',valign:'middle',margin:0.05,isTextBox:true},o));
+    const R=(s,x,y,w,h,fill,lc)=>s.addShape(p.ShapeType.rect,{x,y,w,h,fill:{color:hx(fill)},line:{color:hx(lc||fill),width:lc?1:0}});
+    const content=(title,sub,n)=>{const s=p.addSlide();s.background={color:hx(DY_C.bg)};R(s,0,0,W,0.18,TL);T(s,title,0.5,0.35,12.3,0.6,{fontSize:22});if(sub)T(s,sub,0.5,0.95,12.3,0.45,{fontSize:15,color:GR});T(s,`تقرير كميات الألبان | ${c.f} | ${c.y}`,0.5,7.0,8,0.35,{fontSize:11,color:GR,align:'left'});T(s,String(n),12.3,7.0,0.6,0.35,{fontSize:11,color:GR,align:'right',rtlMode:false});return s;};
+    const pic=(s,url,x,y,w,h,ratio)=>{let iw=w,ih=w/ratio;if(ih>h){ih=h;iw=h*ratio;}s.addImage({data:url.replace('data:',''),x:x+(w-iw)/2,y:y+(h-ih)/2,w:iw,h:ih});};
+    // 1 غلاف
+    let s=p.addSlide();s.background={color:N};R(s,0,0,W,0.18,TL);R(s,9.75,0.18,3.58,7.32,DY_C.panel);
+    T(s,'التقرير السنوي لكميات الألبان',2.0,1.5,10.8,0.8,{fontSize:28,color:'FFFFFF'});
+    T(s,'المصنع: '+c.f,2.0,2.55,10.2,0.6,{fontSize:22,color:'BFD8EE'});T(s,'الفترة: '+dyRange(rows,c.y),2.0,3.2,10.2,0.6,{fontSize:22,color:'FFFFFF'});
+    T(s,'عرض تنفيذي للإدارة',2.0,3.95,10.2,0.6,{fontSize:22,color:GD});R(s,0.6,6.0,3.4,0.09,GD);
+    if(note)T(s,note,0.6,6.2,12.0,0.9,{fontSize:17,color:'FFFFFF'});
+    // 2 الملخص
+    s=content('الملخص التنفيذي',`أهم المؤشرات للفترة من ${dyMn(st.first)} إلى ${dyMn(st.last)} ${c.y}`,2);
+    dyKpis(st).forEach((k,i)=>{const col=i%3,rw=Math.floor(i/3),x=0.6+(2-col)*4.1,y=1.7+rw*1.85;
+      R(s,x,y,3.85,1.6,'#FFFFFF','#DDE3EC');R(s,x+3.72,y,0.13,1.6,k[3]);
+      T(s,k[0],x+0.1,y+0.1,3.55,0.4,{fontSize:13,color:GR});T(s,k[1],x+0.1,y+0.5,3.55,0.6,{fontSize:22});T(s,k[2],x+0.1,y+1.1,3.55,0.4,{fontSize:12,color:GR});});
+    if(st.n>1)T(s,dyCompare(st),0.6,5.6,12.1,0.6,{fontSize:17});
+    // 3,4 المخططات
+    s=content('تطور إجمالي عدد السيارات شهريًا','يوضح الرسم التغير في عدد السيارات المسجل لكل شهر',3);pic(s,ch.cars,0.6,1.5,12.1,4.9,1200/560);
+    T(s,`الأعلى: ${dyMn(st.maxC)} (${dyF0(st.maxC.cars)} سيارة) | الأقل: ${dyMn(st.minC)} (${dyF0(st.minC.cars)} سيارة)`,0.6,6.4,12.1,0.5,{fontSize:15});
+    s=content('تطور الكمية الشهرية بالطن','',4);pic(s,ch.qty,0.6,1.3,12.1,5.1,1200/560);
+    T(s,`أعلى كمية: ${dyMn(st.maxQ)} (${dyF3(st.maxQ.qty)} طن) | أقل كمية: ${dyMn(st.minQ)} (${dyF3(st.minQ.qty)} طن)`,0.6,6.4,12.1,0.5,{fontSize:15});
+    // 5 جدول
+    const tbl=(s,heads,ws,data,y,rh)=>{let x0=0.6;const tw=ws.reduce((a,b)=>a+b,0);const draw=(vals,yy,fill,col)=>{let x=x0+tw;vals.forEach((v,i)=>{x-=ws[i];R(s,x,yy,ws[i],rh,fill,'#FFFFFF');T(s,v,x,yy,ws[i],rh,{fontSize:14,color:col,align:'center'});});};
+      draw(heads,y,DY_C.navy,'FFFFFF');data.forEach((d,i)=>draw(d,y+rh*(i+1),i%2?DY_C.row:'#FFFFFF',N));};
+    s=content('البيانات الشهرية التفصيلية','',5);const rh=Math.min(0.5,5.6/(rows.length+1));
+    tbl(s,['الفترة','الكمية (طن)','عدد السيارات','الشهر','م'],[4.2,2.6,2.2,2.2,0.9],rows.map((r,i)=>[dyPeriod(r),dyF3(r.qty),dyF0(r.cars),MONTHS_AR[r.month-1],String(i+1)]),1.3,rh);
+    // 6 الأرباع
+    s=content('مقارنة الأداء حسب الربع','',6);
+    tbl(s,['حصة السيارات من الإجمالي','إجمالي الكمية (طن)','إجمالي السيارات','الفترة'],[3.6,3.2,2.6,2.7],st.qs.map(q=>[q.share.toFixed(1)+'% من السيارات',dyF3(q.qty),dyF0(q.cars),q.name]),1.4,0.5);
+    T(s,'الكمية بالطن',6.9,3.5,5.8,0.4,{fontSize:14,align:'center'});T(s,'عدد السيارات',0.6,3.5,5.8,0.4,{fontSize:14,align:'center'});
+    pic(s,ch.qQty,6.9,3.9,5.8,3.0,760/420);pic(s,ch.qCars,0.6,3.9,5.8,3.0,760/420);
+    // 7 ملاحظات
+    s=content('أبرز الملاحظات والتحليل','',7);
+    dyObs(st).forEach((t,i)=>{const y=1.4+i*1.05;s.addShape(p.ShapeType.ellipse,{x:12.0,y,w:0.7,h:0.7,fill:{color:hx(i%2?DY_C.blue:DY_C.teal)},line:{color:hx(i%2?DY_C.blue:DY_C.teal),width:0}});T(s,String(i+1).padStart(2,'0'),12.0,y,0.7,0.7,{fontSize:14,color:'FFFFFF',align:'center',rtlMode:false});T(s,t,0.7,y-0.05,11.1,0.8,{fontSize:17});});
+    // 8 ختام
+    s=p.addSlide();s.background={color:N};R(s,0,0,W,0.18,TL);
+    T(s,'شكرًا لحسن المتابعة',1,2.0,11.3,0.7,{fontSize:28,color:'FFFFFF'});T(s,(st.n<12?'التقرير المبدئي':'التقرير')+' لكميات الألبان — مصنع '+c.f,1,3.0,11.3,0.6,{fontSize:22,color:'BFD8EE',bold:false});
+    T(s,`${dyMn(st.first)} – ${dyMn(st.last)} ${c.y}`,1,3.8,11.3,0.6,{fontSize:22,color:GD});if(prep)T(s,'إعداد – '+prep,1,4.6,11.3,0.6,{fontSize:22,color:GD});
+    await p.writeFile({fileName:`كميات_الألبان_${c.y}.pptx`});
+    toast('تم تصدير PowerPoint ✅','ok');logAudit('تصدير PowerPoint','كميات الألبان','—',rows.length+' شهر');
+  }catch(e){toast('خطأ في PowerPoint: '+e.message,'err');console.error(e);}
 }
 
 // STATEMENTS
